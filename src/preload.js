@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('simpleWork', {
   ready: () => ipcRenderer.send('tabs:ready'),
   select: (id) => ipcRenderer.send('tabs:select', id),
   reload: (id) => ipcRenderer.send('tabs:reload', id),
+  openExternal: () => ipcRenderer.send('tabs:open-external'),
   toggleSettings: () => ipcRenderer.send('settings:toggle'),
   // cài đặt
   getSettings: () => ipcRenderer.invoke('settings:get'),

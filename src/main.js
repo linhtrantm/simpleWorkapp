@@ -59,6 +59,7 @@ function sendState() {
     })),
     activeId,
     settingsOpen,
+    canOpenExternal: !!(activeId && tabById(activeId).canOpenExternal),
     ui: ui()
   });
 }
@@ -352,6 +353,12 @@ ipcMain.on('tabs:reload', (_e, id) => {
   else selectTab(id);
 });
 ipcMain.on('tabs:ready', sendState);
+ipcMain.on('tabs:open-external', () => {
+  const v = activeId && views.get(activeId);
+  if (!v || !tabById(activeId).canOpenExternal) return;
+  const url = v.webContents.getURL();
+  if (/^https?:/.test(url)) shell.openExternal(url);
+});
 ipcMain.on('settings:toggle', () => setSettingsOpen(!settingsOpen));
 ipcMain.on('settings:close', () => setSettingsOpen(false));
 ipcMain.handle('settings:get', settingsState);

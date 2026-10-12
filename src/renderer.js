@@ -1,6 +1,8 @@
 const bar = document.getElementById('bar');
 const gear = document.getElementById('gear');
 const title = document.getElementById('title');
+const ext = document.getElementById('ext');
+ext.addEventListener('mousedown', () => window.simpleWork.openExternal());
 const items = new Map(); // id -> { item, badge }
 
 gear.addEventListener('mousedown', () => window.simpleWork.toggleSettings());
@@ -48,7 +50,8 @@ function createItem(t) {
   return { item, badge };
 }
 
-window.simpleWork.onState(({ tabs, activeId, settingsOpen, ui }) => {
+window.simpleWork.onState(({ tabs, activeId, settingsOpen, canOpenExternal, ui }) => {
+  ext.style.display = canOpenExternal && !settingsOpen ? 'flex' : 'none';
   const root = document.documentElement.style;
   root.setProperty('--side-w', ui.width + 'px');
   root.setProperty('--icon', ui.icon + 'px');

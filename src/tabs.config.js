@@ -1,6 +1,7 @@
 // Thêm tab mới = thêm 1 entry vào mảng này, không cần sửa logic.
 // icon (svg, thư mục src/icons) + color (màu nền): hiển thị trên menu trái trên menu trái.
 // disableWebAuthn: true = tắt passkey (Electron không hỗ trợ) để trang đăng nhập dùng mật khẩu/mã.
+// canOpenExternal: true = hiện nút "Mở trong trình duyệt" trên thanh trên khi xem tab này.
 // internalHosts: các host được điều hướng trong chính tab; link khác mở bằng trình duyệt mặc định.
 // authHosts: các host đăng nhập, được phép mở bằng cửa sổ popup trong app (OAuth, MSAL...).
 // Link người dùng bấm trong chat (target=_blank) luôn mở bằng trình duyệt mặc định.
@@ -57,6 +58,7 @@ module.exports = [
     disableWebAuthn: true,
     icon: 'icons/claude.svg',
     color: '#d97757',
+    canOpenExternal: true,
     authHosts: ['accounts.google.com', 'appleid.apple.com', 'gstatic.com'],
     internalHosts: ['claude.ai', 'anthropic.com', 'claude.com']
   }

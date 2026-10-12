@@ -9,6 +9,8 @@
     body { background: var(--band); }
     #topbar { position: absolute; top: 0; left: 0; right: 0; height: 30px; -webkit-app-region: drag; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 600; letter-spacing: .02em; color: var(--muted); border-bottom: 1px solid var(--border2); background: var(--bg); }
     #topbar .wordmark { position: absolute; left: 84px; font-size: 11.5px; color: var(--text); }
+    #ext { -webkit-app-region: no-drag; position: absolute; right: 12px; top: 4px; height: 22px; padding: 0 10px; display: none; align-items: center; gap: 5px; border: 1px solid var(--border2); border-radius: 7px; background: rgba(255,255,255,.05); color: var(--muted); font: 600 11px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; }
+    #ext:hover { color: var(--text); background: rgba(255,255,255,.1); }
     #side { position: absolute; top: 30px; bottom: 0; left: 0; width: var(--side-w, 76px); border-right: 1px solid var(--border2); display: flex; flex-direction: column; padding: 12px 0 14px; -webkit-app-region: drag; }
     #bar { flex: 1; margin-top: 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; overflow-y: auto; overflow-x: hidden; }
     #bar::-webkit-scrollbar { display: none; }
@@ -32,7 +34,7 @@
   </style>
 </head>
 <body>
-  <div id="topbar"><span class="wordmark"><span>simple</span><span class="soft">Work</span></span><span id="title">simpleWork</span></div>
+  <div id="topbar"><span class="wordmark"><span>simple</span><span class="soft">Work</span></span><span id="title">simpleWork</span><button id="ext" title="Mở trang này bằng trình duyệt mặc định">↗ Mở trong trình duyệt</button></div>
   <div id="side">
     <div id="bar"></div>
     <div class="gear" id="gear" title="Cài đặt">
