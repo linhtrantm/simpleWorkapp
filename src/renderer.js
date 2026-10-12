@@ -54,7 +54,6 @@ window.simpleWork.onState(({ tabs, activeId, settingsOpen, ui }) => {
   root.setProperty('--icon', ui.icon + 'px');
   root.setProperty('--glyph', ui.glyph + 'px');
   root.setProperty('--label-display', ui.label ? 'block' : 'none');
-  root.setProperty('--brand-display', ui.width >= 76 ? 'flex' : 'none');
   const ids = new Set(tabs.map((t) => t.id));
   for (const [id, entry] of items) {
     if (!ids.has(id)) {

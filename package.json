@@ -25,7 +25,8 @@
       "category": "public.app-category.productivity",
       "target": [{ "target": "dmg", "arch": ["arm64"] }],
       "icon": "build/icon.png",
-      "identity": null
+      "identity": "-",
+      "hardenedRuntime": false
     },
     "dmg": { "artifactName": "simpleWork-${version}-${arch}.${ext}" }
   }

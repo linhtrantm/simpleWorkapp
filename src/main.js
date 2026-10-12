@@ -1,4 +1,4 @@
-const { app, BrowserWindow, WebContentsView, session, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, WebContentsView, Notification, session, shell, ipcMain } = require('electron');
 const path = require('path');
 const allTabs = require('./tabs.config');
 const settingsStore = require('./settings');
@@ -24,7 +24,9 @@ let settingsOpen = false;
 let splashView = null;
 let settings = { disabled: [], iconSize: 'medium' };
 const views = new Map(); // id -> WebContentsView
-const unread = new Map(); // id -> số tin chưa đọc
+const unread = new Map(); // id -> số hiển thị trên badge
+const titleUnread = new Map(); // id -> số đọc từ title trang "(3) ..."
+const notifUnread = new Map(); // id -> số thông báo nhận khi chưa xem (dự phòng cho app title không có số)
 
 const ui = () => ICON_SIZES[settings.iconSize] || ICON_SIZES.medium;
 const tabById = (id) => allTabs.find((t) => t.id === id);
@@ -69,6 +71,16 @@ function settingsState() {
   };
 }
 
+// Badge = số trong title nếu có, không thì số thông báo chưa xem
+function refreshUnread(id) {
+  const t = titleUnread.get(id) || 0;
+  const v = t > 0 ? t : notifUnread.get(id) || 0;
+  if ((unread.get(id) || 0) === v) return;
+  unread.set(id, v);
+  updateBadge();
+  sendState();
+}
+
 function updateBadge() {
   const total = enabledTabs().reduce((sum, t) => sum + (unread.get(t.id) || 0), 0);
   if (app.dock) app.dock.setBadge(total > 0 ? String(total) : '');
@@ -80,6 +92,8 @@ function setupSession(tab) {
   if (tab.disableWebAuthn) {
     ses.registerPreloadScript({ type: 'frame', filePath: path.join(__dirname, 'no-webauthn.js') });
   }
+  ses.registerPreloadScript({ type: 'frame', filePath: path.join(__dirname, 'notify-bridge.js') });
+  ses.setPermissionCheckHandler((_wc, permission) => permission === 'notifications' || permission === 'clipboard-sanitized-write');
   ses.setPermissionRequestHandler((_wc, permission, cb) => {
     cb(['notifications', 'media', 'clipboard-sanitized-write', 'fullscreen', 'mediaKeySystem'].includes(permission));
   });
@@ -106,9 +120,13 @@ function createView(tab) {
   const wc = view.webContents;
   wc.setUserAgent(USER_AGENT);
 
+  const isAuth = (url) => hostMatches(url, tab.authHosts || []);
+  const isInternal = (url) => isAuth(url) || hostMatches(url, tab.internalHosts);
+
+  // Chỉ popup đăng nhập mới mở trong app. about:blank: popup (MSAL...) mở trống rồi mới điều hướng.
+  // Link người dùng bấm trong chat mở bằng trình duyệt mặc định của macOS.
   wc.setWindowOpenHandler(({ url }) => {
-    // about:blank: popup đăng nhập (MSAL...) mở trống rồi mới điều hướng
-    if (url === 'about:blank' || hostMatches(url, tab.internalHosts)) {
+    if (url === 'about:blank' || isAuth(url)) {
       return {
         action: 'allow',
         overrideBrowserWindowOptions: { parent: win, width: 520, height: 720, autoHideMenuBar: true }
@@ -117,8 +135,19 @@ function createView(tab) {
     shell.openExternal(url);
     return { action: 'deny' };
   });
+  // Popup mở trống rồi điều hướng tới link ngoài: đẩy ra trình duyệt ngoài và đóng popup
+  wc.on('did-create-window', (child) => {
+    const guard = (e, url) => {
+      if (url === 'about:blank' || isInternal(url)) return;
+      e.preventDefault();
+      shell.openExternal(url);
+      if (!child.isDestroyed()) child.close();
+    };
+    child.webContents.on('will-navigate', guard);
+    child.webContents.on('will-redirect', guard);
+  });
   wc.on('will-navigate', (e, url) => {
-    if (!hostMatches(url, tab.internalHosts)) {
+    if (!isInternal(url)) {
       e.preventDefault();
       shell.openExternal(url);
     }
@@ -127,11 +156,8 @@ function createView(tab) {
   // Badge: tiêu đề trang dạng "(3) WhatsApp"
   wc.on('page-title-updated', (_e, title) => {
     const m = title.match(/^\((\d+)\)/);
-    const n = m ? parseInt(m[1], 10) : 0;
-    if (unread.get(tab.id) === n) return;
-    unread.set(tab.id, n);
-    updateBadge();
-    sendState();
+    titleUnread.set(tab.id, m ? parseInt(m[1], 10) : 0);
+    refreshUnread(tab.id);
   });
 
   wc.on('did-fail-load', (_e, code, desc, url, isMain) => {
@@ -151,6 +177,8 @@ function destroyView(id) {
   view.webContents.close();
   views.delete(id);
   unread.delete(id);
+  titleUnread.delete(id);
+  notifUnread.delete(id);
 }
 
 function selectTab(id) {
@@ -161,6 +189,8 @@ function selectTab(id) {
   if (!view) view = createView(tab);
   for (const [vid, v] of views) v.setVisible(vid === id);
   activeId = id;
+  notifUnread.delete(id);
+  refreshUnread(id);
   setSettingsOpen(false);
   view.webContents.focus();
   sendState();
@@ -250,7 +280,7 @@ function createWindow() {
     title: 'simpleWork',
     backgroundColor: BG,
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 18 },
+    trafficLightPosition: { x: 13, y: 9 },
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -259,6 +289,12 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, 'index.html'));
   win.on('resize', layout);
+  win.on('focus', () => {
+    if (activeId && !settingsOpen) {
+      notifUnread.delete(activeId);
+      refreshUnread(activeId);
+    }
+  });
   win.webContents.once('did-finish-load', () => {
     const first = enabledTabs()[0];
     // Mở hết các app đang bật ngay khi khởi động để không lỡ tin nhắn
@@ -282,6 +318,32 @@ function createWindow() {
     settingsOpen = false;
   });
 }
+
+// Thông báo từ trang web -> thông báo gốc macOS; bấm vào thì mở app và chuyển đúng tab
+const liveNotifications = new Set();
+ipcMain.on('notify:show', (e, { id, title, body }) => {
+  if (!Notification.isSupported()) return;
+  let tabId = null;
+  for (const [vid, v] of views) if (v.webContents === e.sender) tabId = vid;
+  // Bỏ qua nếu đang xem đúng tab này và cửa sổ đang được focus
+  if (tabId && tabId === activeId && !settingsOpen && win && win.isVisible() && win.isFocused()) return;
+  if (tabId) {
+    notifUnread.set(tabId, (notifUnread.get(tabId) || 0) + 1);
+    refreshUnread(tabId);
+  }
+  const appName = tabId ? tabById(tabId).name : 'simpleWork';
+  const n = new Notification({ title: `${appName} · ${String(title)}`.slice(0, 200), body: String(body || '').slice(0, 500), silent: true });
+  liveNotifications.add(n); // giữ tham chiếu để không bị thu gom trước khi bấm
+  n.on('click', () => {
+    if (!win) createWindow();
+    win.show();
+    win.focus();
+    if (tabId) selectTab(tabId);
+    if (!e.sender.isDestroyed()) e.sender.send('notify:click', id);
+  });
+  n.on('close', () => liveNotifications.delete(n));
+  n.show();
+});
 
 ipcMain.on('tabs:select', (_e, id) => selectTab(id));
 ipcMain.on('tabs:reload', (_e, id) => {

@@ -1,7 +1,9 @@
 // Thêm tab mới = thêm 1 entry vào mảng này, không cần sửa logic.
 // icon (svg, thư mục src/icons) + color (màu nền): hiển thị trên menu trái trên menu trái.
 // disableWebAuthn: true = tắt passkey (Electron không hỗ trợ) để trang đăng nhập dùng mật khẩu/mã.
-// internalHosts: các host được mở trong app (đăng nhập, popup...); link khác mở bằng trình duyệt mặc định.
+// internalHosts: các host được điều hướng trong chính tab; link khác mở bằng trình duyệt mặc định.
+// authHosts: các host đăng nhập, được phép mở bằng cửa sổ popup trong app (OAuth, MSAL...).
+// Link người dùng bấm trong chat (target=_blank) luôn mở bằng trình duyệt mặc định.
 module.exports = [
   {
     id: 'zalo',
@@ -29,6 +31,10 @@ module.exports = [
     disableWebAuthn: true,
     icon: 'icons/microsoftteams.svg',
     color: '#5b5fc7',
+    authHosts: [
+      'login.microsoftonline.com', 'login.microsoft.com', 'login.live.com', 'account.live.com',
+      'account.microsoft.com', 'microsoftonline.com', 'msauth.net', 'msftauth.net'
+    ],
     internalHosts: [
       'microsoft.com', 'microsoftonline.com', 'live.com', 'office.com',
       'microsoft365.com', 'teams.cloud.microsoft', 'cloud.microsoft', 'skype.com', 'msauth.net', 'msftauth.net'
@@ -51,6 +57,7 @@ module.exports = [
     disableWebAuthn: true,
     icon: 'icons/claude.svg',
     color: '#d97757',
-    internalHosts: ['claude.ai', 'anthropic.com', 'claude.com', 'google.com', 'gstatic.com', 'apple.com']
+    authHosts: ['accounts.google.com', 'appleid.apple.com', 'gstatic.com'],
+    internalHosts: ['claude.ai', 'anthropic.com', 'claude.com']
   }
 ];
