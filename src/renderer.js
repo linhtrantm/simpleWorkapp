@@ -2,6 +2,7 @@ const bar = document.getElementById('bar');
 const gear = document.getElementById('gear');
 const title = document.getElementById('title');
 const ext = document.getElementById('ext');
+let lang = 'vi';
 ext.addEventListener('mousedown', () => window.simpleWork.openExternal());
 const items = new Map(); // id -> { item, badge }
 
@@ -22,10 +23,17 @@ function createItem(t) {
   icon.style.setProperty('--glow', t.color);
   item.appendChild(icon);
 
-  const img = document.createElement('img');
-  img.src = t.icon;
-  img.alt = t.name;
-  icon.appendChild(img);
+  if (t.icon) {
+    const img = document.createElement('img');
+    img.src = t.icon;
+    img.alt = t.name;
+    icon.appendChild(img);
+  } else {
+    const letter = document.createElement('span');
+    letter.className = 'letter';
+    letter.textContent = t.letter || '?';
+    icon.appendChild(letter);
+  }
 
   const badge = document.createElement('span');
   badge.className = 'badge';
@@ -34,7 +42,7 @@ function createItem(t) {
 
   const r = document.createElement('button');
   r.className = 'reload';
-  r.title = 'Tải lại ' + t.name;
+  r.title = i18n.t(lang, 'reload', { name: t.name });
   r.textContent = '⟳';
   r.addEventListener('mousedown', (e) => {
     e.stopPropagation();
@@ -47,10 +55,12 @@ function createItem(t) {
   label.textContent = t.name;
   item.appendChild(label);
 
-  return { item, badge };
+  return { item, badge, reload: r };
 }
 
-window.simpleWork.onState(({ tabs, activeId, settingsOpen, canOpenExternal, ui }) => {
+window.simpleWork.onState(({ tabs, activeId, settingsOpen, canOpenExternal, lang: newLang, ui }) => {
+  lang = newLang || 'vi';
+  i18n.apply(lang, document);
   ext.style.display = canOpenExternal && !settingsOpen ? 'flex' : 'none';
   const root = document.documentElement.style;
   root.setProperty('--side-w', ui.width + 'px');
@@ -73,12 +83,13 @@ window.simpleWork.onState(({ tabs, activeId, settingsOpen, canOpenExternal, ui }
     // giữ đúng thứ tự (app bật lại có thể chen vào giữa)
     if (bar.children[i] !== entry.item) bar.insertBefore(entry.item, bar.children[i] || null);
     entry.item.classList.toggle('active', !settingsOpen && t.id === activeId);
+    entry.reload.title = i18n.t(lang, 'reload', { name: t.name });
     entry.badge.hidden = !(t.unread > 0);
     entry.badge.textContent = t.unread > 0 ? t.unread : '';
   });
   gear.classList.toggle('active', !!settingsOpen);
   const current = tabs.find((t) => t.id === activeId);
-  title.textContent = settingsOpen ? 'Cài đặt' : current ? current.name : 'simpleWork';
+  title.textContent = settingsOpen ? i18n.t(lang, 'settings') : current ? current.name : 'simpleWork';
 });
 
 window.simpleWork.ready();

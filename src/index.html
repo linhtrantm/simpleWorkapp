@@ -21,6 +21,7 @@
     .icon { position: relative; width: var(--icon, 38px); height: var(--icon, 38px); border-radius: 12px; display: flex; align-items: center; justify-content: center; opacity: .6; filter: saturate(.8); transition: opacity .15s, transform .15s, box-shadow .15s, filter .15s; }
     .item:hover .icon { opacity: .9; }
     .item.active .icon { opacity: 1; filter: none; transform: translateY(-1px); box-shadow: 0 6px 18px -4px var(--glow, #000); }
+    .icon .letter { color: #fff; font-weight: 700; font-size: calc(var(--glyph, 21px) * 0.95); line-height: 1; pointer-events: none; }
     .icon img { width: var(--glyph, 21px); height: var(--glyph, 21px); filter: brightness(0) invert(1); pointer-events: none; }
     .label { display: var(--label-display, block); font-size: 9.5px; font-weight: 600; color: var(--muted); max-width: calc(var(--side-w, 72px) - 6px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .15s; }
     .item.active .label { color: var(--text); }
@@ -34,13 +35,14 @@
   </style>
 </head>
 <body>
-  <div id="topbar"><span class="wordmark"><span>simple</span><span class="soft">Work</span></span><span id="title">simpleWork</span><button id="ext" title="Mở trang này bằng trình duyệt mặc định">↗ Mở trong trình duyệt</button></div>
+  <div id="topbar"><span class="wordmark"><span>simple</span><span class="soft">Work</span></span><span id="title">simpleWork</span><button id="ext" data-i18n="openBrowser" data-i18n-title="openBrowserTitle">↗ Mở trong trình duyệt</button></div>
   <div id="side">
     <div id="bar"></div>
-    <div class="gear" id="gear" title="Cài đặt">
+    <div class="gear" id="gear" data-i18n-title="settings" title="Cài đặt">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </div>
   </div>
+  <script src="i18n.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

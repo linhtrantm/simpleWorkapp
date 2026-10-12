@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('simpleWork', {
   onSettings: (cb) => ipcRenderer.on('settings:state', (_e, s) => cb(s)),
   setEnabled: (id, enabled) => ipcRenderer.send('settings:set-enabled', id, enabled),
   setIconSize: (size) => ipcRenderer.send('settings:set-icon-size', size),
+  setLang: (lang) => ipcRenderer.send('settings:set-lang', lang),
+  addApp: (data) => ipcRenderer.invoke('settings:add-app', data),
+  removeApp: (id) => ipcRenderer.invoke('settings:remove-app', id),
   closeSettings: () => ipcRenderer.send('settings:close'),
   // loader
   onSplashHide: (cb) => ipcRenderer.on('splash:hide', cb)

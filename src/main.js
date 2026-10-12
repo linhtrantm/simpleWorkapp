@@ -1,7 +1,8 @@
-const { app, BrowserWindow, WebContentsView, Notification, session, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, WebContentsView, Notification, Tray, Menu, nativeImage, session, shell, ipcMain } = require('electron');
 const path = require('path');
-const allTabs = require('./tabs.config');
+const builtinTabs = require('./tabs.config');
 const settingsStore = require('./settings');
+const i18n = require('./i18n');
 
 // Kích thước thanh bên theo cỡ icon (px)
 const ICON_SIZES = {
@@ -22,16 +23,37 @@ let quitting = false;
 let settingsView = null;
 let settingsOpen = false;
 let splashView = null;
-let settings = { disabled: [], iconSize: 'medium' };
+let settings = { disabled: [], iconSize: 'medium', customApps: [], lang: 'vi' };
+let tray = null;
+let traySig = '';
 const views = new Map(); // id -> WebContentsView
 const unread = new Map(); // id -> số hiển thị trên badge
 const titleUnread = new Map(); // id -> số đọc từ title trang "(3) ..."
 const notifUnread = new Map(); // id -> số thông báo nhận khi chưa xem (dự phòng cho app title không có số)
 
+const T = (key, vars) => i18n.t(settings.lang, key, vars);
 const ui = () => ICON_SIZES[settings.iconSize] || ICON_SIZES.medium;
-const tabById = (id) => allTabs.find((t) => t.id === id);
+// App tuỳ ý (người dùng thêm trong Cài đặt) được chuyển thành entry giống tabs.config
+function customToTab(c) {
+  let host = '';
+  try {
+    host = new URL(c.url).hostname.replace(/^www\./, '');
+  } catch {}
+  return {
+    id: c.id,
+    name: c.name,
+    url: c.url,
+    partition: 'persist:Custom_' + c.id.replace(/\W/g, ''),
+    letter: c.name.trim().charAt(0).toUpperCase(),
+    color: c.color,
+    custom: true,
+    internalHosts: host ? [host] : []
+  };
+}
+const allTabs = () => [...builtinTabs, ...settings.customApps.map(customToTab)];
+const tabById = (id) => allTabs().find((t) => t.id === id);
 const isEnabled = (id) => !settings.disabled.includes(id);
-const enabledTabs = () => allTabs.filter((t) => isEnabled(t.id));
+const enabledTabs = () => allTabs().filter((t) => isEnabled(t.id));
 
 function hostMatches(url, hosts) {
   try {
@@ -52,14 +74,16 @@ function layout() {
 }
 
 function sendState() {
+  refreshTray();
   if (!win) return;
   win.webContents.send('tabs:state', {
     tabs: enabledTabs().map((t) => ({
-      id: t.id, name: t.name, icon: t.icon, color: t.color, unread: unread.get(t.id) || 0
+      id: t.id, name: t.name, icon: t.icon, letter: t.letter, color: t.color, unread: unread.get(t.id) || 0
     })),
     activeId,
     settingsOpen,
     canOpenExternal: !!(activeId && tabById(activeId).canOpenExternal),
+    lang: settings.lang,
     ui: ui()
   });
 }
@@ -68,7 +92,10 @@ function settingsState() {
   return {
     version: app.getVersion(),
     iconSize: settings.iconSize,
-    apps: allTabs.map((t) => ({ id: t.id, name: t.name, icon: t.icon, color: t.color, enabled: isEnabled(t.id) }))
+    lang: settings.lang,
+    apps: allTabs().map((t) => ({
+      id: t.id, name: t.name, icon: t.icon, letter: t.letter, color: t.color, custom: !!t.custom, enabled: isEnabled(t.id)
+    }))
   };
 }
 
@@ -249,6 +276,100 @@ function applyEnabledChange(id, enabled) {
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 }
 
+// ---- Menu bar (khay hệ thống) ----
+function showWindow() {
+  if (!win) createWindow();
+  win.show();
+  win.focus();
+}
+
+function refreshTray() {
+  if (!tray) return;
+  const tabs = enabledTabs();
+  const sig = settings.lang + JSON.stringify(tabs.map((t) => [t.id, t.name, unread.get(t.id) || 0]));
+  if (sig === traySig) return;
+  traySig = sig;
+  const total = tabs.reduce((sum, t) => sum + (unread.get(t.id) || 0), 0);
+  tray.setTitle(total > 0 ? ' ' + total : '');
+  tray.setToolTip(total > 0 ? T('trayTooltipUnread', { n: total }) : 'simpleWork');
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: T('trayOpen'), click: showWindow },
+      { type: 'separator' },
+      ...tabs.map((t) => {
+        const n = unread.get(t.id) || 0;
+        return {
+          label: n > 0 ? `${t.name}  (${n})` : t.name,
+          click: () => {
+            showWindow();
+            selectTab(t.id);
+          }
+        };
+      }),
+      { type: 'separator' },
+      {
+        label: T('traySettings'),
+        click: () => {
+          showWindow();
+          setSettingsOpen(true);
+        }
+      },
+      { type: 'separator' },
+      { label: T('trayQuit'), click: () => app.quit() }
+    ])
+  );
+}
+
+function createTray() {
+  const img = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'));
+  img.setTemplateImage(true);
+  tray = new Tray(img);
+  refreshTray();
+}
+
+// ---- App tuỳ ý ----
+function addCustomApp({ name, url, color }) {
+  name = String(name || '').trim().slice(0, 24);
+  if (!name) return { ok: false, error: 'name' };
+  url = String(url || '').trim();
+  if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+  try {
+    const u = new URL(url);
+    if (!/^https?:$/.test(u.protocol) || !u.hostname.includes('.')) throw new Error('bad');
+    url = u.href;
+  } catch {
+    return { ok: false, error: 'url' };
+  }
+  if (!/^#[0-9a-f]{6}$/i.test(color || '')) color = '#3B82F6';
+  const id = 'custom-' + Date.now().toString(36);
+  settings.customApps.push({ id, name, url, color });
+  settingsStore.save(settings);
+  createView(tabById(id));
+  sendState();
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+  return { ok: true };
+}
+
+function removeCustomApp(id) {
+  const c = settings.customApps.find((a) => a.id === id);
+  if (!c) return { ok: false };
+  if (enabledTabs().length <= 1 && isEnabled(id)) return { ok: false, error: 'last' };
+  const tab = customToTab(c);
+  destroyView(id);
+  settings.customApps = settings.customApps.filter((a) => a.id !== id);
+  settings.disabled = settings.disabled.filter((d) => d !== id);
+  settingsStore.save(settings);
+  session.fromPartition(tab.partition).clearStorageData().catch(() => {});
+  if (activeId === id) {
+    activeId = null;
+    selectTab(enabledTabs()[0].id);
+  }
+  updateBadge();
+  sendState();
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+  return { ok: true };
+}
+
 function showSplash(readyPromise) {
   splashView = new WebContentsView({
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true }
@@ -370,6 +491,16 @@ ipcMain.on('settings:set-icon-size', (_e, size) => {
   sendState();
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
+ipcMain.on('settings:set-lang', (_e, lang) => {
+  if (lang !== 'vi' && lang !== 'en') return;
+  settings.lang = lang;
+  settingsStore.save(settings);
+  traySig = '';
+  sendState(); // cập nhật cả tray (refreshTray) lẫn thanh bên
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+});
+ipcMain.handle('settings:add-app', (_e, data) => addCustomApp(data || {}));
+ipcMain.handle('settings:remove-app', (_e, id) => removeCustomApp(id));
 ipcMain.on('settings:set-enabled', (_e, id, enabled) => {
   if (tabById(id)) applyEnabledChange(id, !!enabled);
 });
@@ -379,6 +510,7 @@ app.whenReady().then(() => {
   // Phòng trường hợp file settings tắt hết
   if (enabledTabs().length === 0) settings.disabled = [];
   createWindow();
+  createTray();
   app.on('activate', () => {
     if (!win) createWindow();
     else win.show();

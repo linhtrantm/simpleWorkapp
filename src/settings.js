@@ -4,16 +4,21 @@ const path = require('path');
 
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
-// { disabled: ['teams', ...], iconSize: 'small'|'medium'|'large' } - mặc định tất cả app đều bật
+// { disabled: ['teams', ...], iconSize: 'small'|'medium'|'large', customApps: [{ id, name, url, color }], lang: 'vi'|'en' }
+// mặc định tất cả app đều bật
 function load() {
   try {
     const data = JSON.parse(fs.readFileSync(file(), 'utf8'));
     return {
       disabled: Array.isArray(data.disabled) ? data.disabled : [],
-      iconSize: data.iconSize || 'medium'
+      iconSize: data.iconSize || 'medium',
+      lang: data.lang === 'en' ? 'en' : 'vi',
+      customApps: Array.isArray(data.customApps)
+        ? data.customApps.filter((a) => a && a.id && a.name && /^https?:\/\//.test(a.url))
+        : []
     };
   } catch {
-    return { disabled: [], iconSize: 'medium' };
+    return { disabled: [], iconSize: 'medium', customApps: [], lang: 'vi' };
   }
 }
 
