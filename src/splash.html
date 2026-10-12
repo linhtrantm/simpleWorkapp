@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'">
+  <title>simpleWork</title>
+  <link rel="stylesheet" href="assets/theme.css">
+  <style>
+    body { display: flex; align-items: center; justify-content: center; -webkit-app-region: drag; transition: opacity .4s ease; background: radial-gradient(ellipse at 50% 40%, rgba(245,138,31,.14), transparent 60%), var(--bg); }
+    body.hide { opacity: 0; }
+    .wrap { display: flex; flex-direction: column; align-items: center; gap: 20px; animation: rise .7s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .wordmark { font-size: 44px; }
+    .tag { font-family: var(--mono); font-size: 13px; color: var(--accent); letter-spacing: .02em; margin-top: -8px; }
+    .track { width: 168px; height: 3px; border-radius: 3px; background: rgba(255,255,255,.07); overflow: hidden; margin-top: 8px; }
+    .track i { display: block; width: 40%; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); animation: slide 1.2s ease-in-out infinite; }
+    @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="wordmark"><span>simple</span><span class="soft">Work</span></div>
+    <div class="tag">// Unified Business Management</div>
+    <div class="track"><i></i></div>
+  </div>
+  <script src="splash.js"></script>
+</body>
+</html>
