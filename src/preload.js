@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('simpleWork', {
   reload: (id) => ipcRenderer.send('tabs:reload', id),
   openExternal: () => ipcRenderer.send('tabs:open-external'),
   itemMenu: (id) => ipcRenderer.send('tabs:menu', id),
+  onHandoff: (cb) => ipcRenderer.on('handoff:show', (_e, d) => cb(d)),
+  releaseHandoff: () => ipcRenderer.send('handoff:release'),
   toggleSettings: () => ipcRenderer.send('settings:toggle'),
   // cài đặt
   getSettings: () => ipcRenderer.invoke('settings:get'),

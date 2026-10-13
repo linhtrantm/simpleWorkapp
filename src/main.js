@@ -12,15 +12,15 @@ const settingsStore = require('./settings');
 const i18n = require('./i18n');
 
 // Kích thước thanh bên theo cỡ icon (px)
+// Thanh bên tối thiểu 68px để chứa vừa 3 nút cửa sổ macOS, nên tấm thẻ web luôn dán sát mép trên (top: 0)
 const ICON_LEVELS = [
-  { width: 52, icon: 30, glyph: 17, label: false, labelSize: 9.5 },
-  { width: 60, icon: 34, glyph: 19, label: false, labelSize: 9.5 },
-  { width: 70, icon: 36, glyph: 20, label: true, labelSize: 9.5 },
-  { width: 76, icon: 40, glyph: 22, label: true, labelSize: 9.5 },
-  { width: 86, icon: 46, glyph: 26, label: true, labelSize: 10 },
-  { width: 98, icon: 54, glyph: 30, label: true, labelSize: 11 }
+  { width: 68, icon: 30, glyph: 17, label: false, labelSize: 9.5, top: 0 },
+  { width: 68, icon: 38, glyph: 21, label: false, labelSize: 9.5, top: 0 },
+  { width: 74, icon: 40, glyph: 22, label: true, labelSize: 9.5, top: 0 },
+  { width: 80, icon: 44, glyph: 24, label: true, labelSize: 9.5, top: 0 },
+  { width: 90, icon: 50, glyph: 28, label: true, labelSize: 10, top: 0 },
+  { width: 102, icon: 56, glyph: 31, label: true, labelSize: 11, top: 0 }
 ];
-const TOPBAR_HEIGHT = 20; // dải kéo cửa sổ mỏng phía trên vùng nội dung
 const CARD_RADIUS = 12; // góc bo của "tấm thẻ" chứa nội dung web
 const CARD_MARGIN = 8; // khoảng cách tấm thẻ với mép phải/dưới cửa sổ
 const LOAD_TIMEOUT_MS = 10000; // quá thời gian này vẫn hiện trang dù chưa báo tải xong
@@ -35,6 +35,7 @@ let win;
 let activeId = null;
 let quitting = false;
 let settingsView = null;
+let handoffView = null;
 let settingsOpen = false;
 let splashView = null;
 let settings = { notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
@@ -42,11 +43,17 @@ let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
 const unread = new Map(); // id -> số hiển thị trên badge
-const titleUnread = new Map(); // id -> số đọc từ title trang "(3) ..."
+const titleUnread = new Map(); // id -> số lớn nhất đọc từ title "(3) ..." kể từ lần xem gần nhất
 const loadState = new Map(); // id -> 'loading' | 'ready' | 'failed'
 const loadError = new Map();
 const loadTimers = new Map();
-const notifUnread = new Map(); // id -> số thông báo nhận khi chưa xem (dự phòng cho app title không có số)
+const handoff = new Set(); // app đang được mở ở trình duyệt ngoài: làm mờ, khoá, tắt thông báo
+const handoffCss = new Map(); // id -> key CSS đã chèn
+// Giao diện web của Zalo... khai báo vùng "kéo cửa sổ" cho app desktop của họ (gồm cả ô Search), trong simpleWork
+// nó làm cả cửa sổ bị kéo đi khi bấm vào. Tắt hết vùng kéo do trang web tự khai báo.
+const NO_DRAG_CSS = '*:not(#sw-a):not(#sw-b),*:not(#sw-a):not(#sw-b)::before,*:not(#sw-a):not(#sw-b)::after{-webkit-app-region:no-drag!important}';
+const HANDOFF_CSS = 'html{filter:blur(14px) saturate(.75)!important;pointer-events:none!important;user-select:none!important;transition:filter .3s}';
+const notifUnread = new Map(); // id -> số thông báo nhận kể từ lần xem gần nhất (dự phòng cho app title không có số)
 
 const T = (key, vars) => i18n.t(settings.lang, key, vars);
 const ui = () => ICON_LEVELS[(settings.iconLevel || 4) - 1] || ICON_LEVELS[3];
@@ -93,12 +100,13 @@ function layout() {
   const [w, h] = win.getContentSize();
   const content = {
     x: ui().width,
-    y: TOPBAR_HEIGHT,
+    y: ui().top,
     width: Math.max(0, w - ui().width - CARD_MARGIN),
-    height: Math.max(0, h - TOPBAR_HEIGHT - CARD_MARGIN)
+    height: Math.max(0, h - ui().top - CARD_MARGIN)
   };
   for (const v of views.values()) v.setBounds(content);
   if (settingsView) settingsView.setBounds(content);
+  if (handoffView) handoffView.setBounds(content);
   if (splashView) splashView.setBounds({ x: 0, y: 0, width: w, height: h });
 }
 
@@ -111,6 +119,8 @@ function sendState() {
     })),
     activeId,
     settingsOpen,
+    handoff: [...handoff],
+    version: app.getVersion(),
     canOpenExternal: !!activeId,
     load: { state: (activeId && loadState.get(activeId)) || 'ready', error: (activeId && loadError.get(activeId)) || '' },
     lang: settings.lang,
@@ -133,14 +143,22 @@ function settingsState() {
   };
 }
 
-// Badge = số trong title nếu có, không thì số thông báo chưa xem
+// Badge "dính": đã hiện thì giữ nguyên cho tới khi người dùng xem app đó (bấm vào hoặc đang xem lúc cửa sổ được focus).
+// Title nhấp nháy ("(1) ..." rồi về tên thường) không làm badge tắt đi bật lại.
 function refreshUnread(id) {
-  const t = titleUnread.get(id) || 0;
-  const v = t > 0 ? t : notifUnread.get(id) || 0;
+  const v = Math.max(titleUnread.get(id) || 0, notifUnread.get(id) || 0);
   if ((unread.get(id) || 0) === v) return;
   unread.set(id, v);
   updateBadge();
   sendState();
+}
+
+const isViewing = (id) => id === activeId && !settingsOpen && !!win && win.isVisible() && win.isFocused();
+
+function clearUnread(id) {
+  titleUnread.delete(id);
+  notifUnread.delete(id);
+  refreshUnread(id);
 }
 
 function updateBadge() {
@@ -220,10 +238,19 @@ function createView(tab) {
   // Badge: tiêu đề trang dạng "(3) WhatsApp"
   wc.on('page-title-updated', (_e, title) => {
     const m = title.match(/^\((\d+)\)/);
-    titleUnread.set(tab.id, m ? parseInt(m[1], 10) : 0);
-    refreshUnread(tab.id);
+    const n = m ? parseInt(m[1], 10) : 0;
+    if (handoff.has(tab.id)) return;
+    if (isViewing(tab.id)) clearUnread(tab.id); // đang xem thì không có gì "chưa đọc"
+    else if (n > 0) {
+      titleUnread.set(tab.id, Math.max(titleUnread.get(tab.id) || 0, n));
+      refreshUnread(tab.id);
+    }
   });
 
+  wc.on('dom-ready', () => wc.insertCSS(NO_DRAG_CSS).catch(() => {}));
+  wc.on('did-finish-load', () => {
+    if (handoff.has(tab.id)) applyHandoffCss(tab.id);
+  });
   // Trạng thái tải: ẩn trang web cho tới khi tải xong, trong lúc đó thanh bên hiện màn hình chờ
   wc.on('did-stop-loading', () => {
     if (loadState.get(tab.id) === 'loading') setLoad(tab.id, 'ready');
@@ -259,6 +286,78 @@ function setLoad(id, state, err) {
 }
 
 // Chỉ hiện trang của tab đang chọn và đã tải xong
+// ---- Mở ở trình duyệt ngoài: làm mờ app trong simpleWork cho tới khi người dùng bấm "Dùng lại ở đây" ----
+async function applyHandoffCss(id) {
+  const v = views.get(id);
+  if (!v || v.webContents.isDestroyed()) return;
+  try {
+    handoffCss.set(id, await v.webContents.insertCSS(HANDOFF_CSS));
+  } catch {}
+}
+
+async function removeHandoffCss(id) {
+  const v = views.get(id);
+  const key = handoffCss.get(id);
+  handoffCss.delete(id);
+  if (!v || !key || v.webContents.isDestroyed()) return;
+  try {
+    await v.webContents.removeInsertedCSS(key);
+  } catch {}
+}
+
+function startHandoff(id, { open = true } = {}) {
+  const v = views.get(id);
+  if (!v) return;
+  const url = v.webContents.getURL();
+  if (open && /^https?:/.test(url)) shell.openExternal(url);
+  handoff.add(id);
+  titleUnread.delete(id);
+  notifUnread.delete(id);
+  applyHandoffCss(id);
+  refreshUnread(id);
+  refreshHandoffOverlay();
+  sendState();
+}
+
+function endHandoff(id) {
+  if (!handoff.delete(id)) return;
+  removeHandoffCss(id);
+  refreshHandoffOverlay();
+  sendState();
+}
+
+// Lớp phủ trong suốt có thẻ thông báo + nút "Dùng lại ở đây", nằm trên app đang bị làm mờ
+function refreshHandoffOverlay() {
+  if (!win) return;
+  const show = !!activeId && handoff.has(activeId) && !settingsOpen && loadState.get(activeId) === 'ready';
+  if (!show) {
+    if (handoffView) handoffView.setVisible(false);
+    return;
+  }
+  if (!handoffView) {
+    handoffView = new WebContentsView({
+      webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true }
+    });
+    handoffView.setBorderRadius(CARD_RADIUS);
+    handoffView.setBackgroundColor('#00000000');
+    handoffView.webContents.loadFile(path.join(__dirname, 'handoff.html'));
+    win.contentView.addChildView(handoffView);
+  }
+  layout();
+  const tab = tabById(activeId);
+  const send = () =>
+    handoffView.webContents.send('handoff:show', {
+      name: tab.name, icon: tab.icon, letter: tab.letter, color: tab.color, lang: settings.lang, accent: settings.accent
+    });
+  win.contentView.addChildView(handoffView); // đưa lên trên các app
+  if (settingsView && settingsOpen) win.contentView.addChildView(settingsView);
+  if (splashView) win.contentView.addChildView(splashView);
+  handoffView.setVisible(true);
+  if (handoffView.webContents.isLoading()) handoffView.webContents.once('did-finish-load', send);
+  else send();
+  handoffView.webContents.focus();
+}
+
 // App có keepAlive (Teams) vẫn được "hiện" nằm dưới app đang xem để trình duyệt tiếp tục vẽ khung hình,
 // nếu ẩn hẳn thì trang nặng đứng yên tới khi được bấm vào.
 let raisedId = null;
@@ -275,6 +374,7 @@ function applyVisibility() {
     if (splashView) win.contentView.addChildView(splashView);
     raisedId = activeId;
   }
+  refreshHandoffOverlay();
 }
 
 function destroyView(id) {
@@ -283,6 +383,8 @@ function destroyView(id) {
   win.contentView.removeChildView(view);
   view.webContents.close();
   views.delete(id);
+  handoff.delete(id);
+  handoffCss.delete(id);
   if (raisedId === id) raisedId = null;
   clearTimeout(loadTimers.get(id));
   loadState.delete(id);
@@ -300,8 +402,7 @@ function selectTab(id) {
   if (!view) view = createView(tab);
   activeId = id;
   applyVisibility();
-  notifUnread.delete(id);
-  refreshUnread(id);
+  clearUnread(id); // bấm vào xem là hết badge
   setSettingsOpen(false);
   view.webContents.focus();
   sendState();
@@ -487,7 +588,7 @@ function createWindow() {
     vibrancy: 'sidebar', // kính mờ gốc của macOS cho thanh bên
     visualEffectState: 'active',
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 13, y: 4 },
+    trafficLightPosition: { x: 13, y: 10 },
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -497,10 +598,7 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'index.html'));
   win.on('resize', layout);
   win.on('focus', () => {
-    if (activeId && !settingsOpen) {
-      notifUnread.delete(activeId);
-      refreshUnread(activeId);
-    }
+    if (activeId && !settingsOpen) clearUnread(activeId);
   });
   win.webContents.once('did-finish-load', () => {
     const first = enabledTabs()[0];
@@ -522,6 +620,8 @@ function createWindow() {
     views.clear();
     settingsView = null;
     splashView = null;
+    handoffView = null;
+    handoff.clear();
     settingsOpen = false;
   });
 }
@@ -544,6 +644,10 @@ ipcMain.on('notify:show', (e, { id, title, body }) => {
   // Bỏ qua nếu đang xem đúng tab này và cửa sổ đang được focus
   if (tabId && tabId === activeId && !settingsOpen && win && win.isVisible() && win.isFocused()) {
     logNotify(`skip(đang xem) ${tabId} "${String(title).slice(0, 40)}"`);
+    return;
+  }
+  if (tabId && handoff.has(tabId)) {
+    logNotify(`skip(đang mở ở trình duyệt) ${tabId}`);
     return;
   }
   logNotify(`show ${tabId} "${String(title).slice(0, 40)}" sound=${settings.notifySound}`);
@@ -585,17 +689,15 @@ ipcMain.on('tabs:menu', (_e, id) => {
   if (!tab || !win) return;
   Menu.buildFromTemplate([
     { label: T('reload', { name: tab.name }), click: () => reloadTab(id) },
-    {
-      label: T('openInBrowserMenu'),
-      click: () => {
-        const v = views.get(id);
-        const url = v && v.webContents.getURL();
-        if (url && /^https?:/.test(url)) shell.openExternal(url);
-      }
-    }
+    handoff.has(id)
+      ? { label: T('menuUseHere', { name: tab.name }), click: () => endHandoff(id) }
+      : { label: T('openInBrowserMenu'), click: () => startHandoff(id) }
   ]).popup({ window: win });
 });
 ipcMain.on('tabs:ready', sendState);
+ipcMain.on('handoff:release', () => {
+  if (activeId) endHandoff(activeId);
+});
 ipcMain.on('tabs:open-external', () => {
   const v = activeId && views.get(activeId);
   if (!v) return;

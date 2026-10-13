@@ -13,11 +13,9 @@
     /* Nền cửa sổ: kính mờ macOS + lớp phủ + ánh màu của app đang xem (đổi màu mượt) */
     body { transition: --tint .6s ease; background: radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--tint) 30%, transparent), transparent 70%), var(--glass); }
 
-    #topbar { position: absolute; top: 0; left: 0; right: 0; height: 20px; -webkit-app-region: drag; }
-    #topbar .wordmark { position: absolute; left: 82px; top: 3px; font-size: 11px; color: var(--text); opacity: .85; line-height: 14px; }
 
     /* Màn hình chờ / lỗi nằm phía sau trang web, lộ ra khi trang chưa sẵn sàng */
-    #stage { position: absolute; left: var(--side-w, 76px); top: 20px; right: 8px; bottom: 8px; border-radius: 12px; background: var(--card); border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; text-align: center; box-shadow: 0 10px 40px -12px var(--shadow); }
+    #stage { position: absolute; left: var(--side-w, 76px); top: var(--top, 0px); right: 8px; bottom: 8px; border-radius: 12px; background: var(--card); border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; text-align: center; box-shadow: 0 10px 40px -12px var(--shadow); }
     #stage .big { position: relative; width: 76px; height: 76px; border-radius: 22px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 1px 0 rgba(255,255,255,.4), inset 0 -14px 22px rgba(0,0,0,.18), 0 16px 34px -10px var(--glow, #000); animation: breathe 2.2s ease-in-out infinite; }
     #stage .big img { width: 40px; height: 40px; filter: brightness(0) invert(1); }
     #stage .big .letter { color: #fff; font-size: 34px; font-weight: 700; }
@@ -34,7 +32,7 @@
     #stage .dots i:nth-child(2) { animation-delay: .15s; } #stage .dots i:nth-child(3) { animation-delay: .3s; }
     @keyframes dot { 0%, 80%, 100% { transform: scale(.5); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
 
-    #side { position: absolute; top: 20px; bottom: 0; left: 0; width: var(--side-w, 76px); display: flex; flex-direction: column; padding: 12px 0 14px; -webkit-app-region: drag; }
+    #side { position: absolute; top: 0; bottom: 0; left: 0; width: var(--side-w, 76px); display: flex; flex-direction: column; padding: 40px 0 12px; -webkit-app-region: drag; }
     #bar { position: relative; flex: 1; margin-top: 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; overflow-y: auto; overflow-x: hidden; }
     #bar::-webkit-scrollbar { display: none; }
 
@@ -51,12 +49,17 @@
     .item.active .icon { opacity: 1; filter: none; transform: translateY(-1px) scale(1.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -8px 14px rgba(0,0,0,.18), 0 12px 24px -6px var(--glow, #000); }
     .icon .letter { color: #fff; font-weight: 700; font-size: calc(var(--glyph, 21px) * 0.95); line-height: 1; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
     .icon img { width: var(--glyph, 21px); height: var(--glyph, 21px); filter: brightness(0) invert(1) drop-shadow(0 1px 1px rgba(0,0,0,.25)); pointer-events: none; }
-    .icon.has-unread::after { content: ''; position: absolute; inset: -3px; border-radius: 32%; border: 2px solid var(--glow, #fff); opacity: 0; pointer-events: none; animation: ring 2.4s ease-out infinite; }
+    .icon.has-unread::after { content: ''; position: absolute; inset: -3px; border-radius: 32%; border: 2px solid var(--glow, #fff); opacity: 0; pointer-events: none; animation: ring 2.4s ease-out 2; }
+    .item.handoff .icon { opacity: .45; filter: grayscale(.7); }
+    .item.handoff .icon::before { content: '↗'; position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 800; line-height: 17px; text-align: center; z-index: 2; box-shadow: 0 0 0 2px var(--ring); }
     .label { display: var(--label-display, block); font-size: var(--label-size, 9.5px); font-weight: 600; color: var(--muted); max-width: calc(var(--side-w, 76px) - 6px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .15s; }
     .item.active .label { color: var(--text); }
     .badge { position: absolute; top: -7px; right: -8px; min-width: 19px; height: 19px; padding: 0 5px; line-height: 15px; text-align: center; background: linear-gradient(180deg, #ff6b6b, #e11d48); color: #fff; border-radius: 10px; font-size: 10px; font-weight: 700; box-shadow: 0 0 0 2px var(--ring), 0 4px 10px -2px rgba(225,29,72,.6); }
     .badge.pop { animation: pop .5s cubic-bezier(.34, 1.8, .64, 1); }
     @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+    .brand { text-align: center; padding: 8px 0 0; line-height: 1.25; }
+    .brand .wordmark { display: var(--brand-display, inline-flex); font-size: 11.5px; color: var(--text); opacity: .9; }
+    .brand .ver { display: block; margin-top: 2px; font: 9.5px var(--mono); color: var(--muted); }
     .gear { margin: 0 auto; color: var(--muted); }
     .gear svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: transform .5s ease; }
     .gear:hover svg { transform: rotate(60deg); }
@@ -65,13 +68,13 @@
   </style>
 </head>
 <body>
-  <div id="topbar"><span class="wordmark"><span>simple</span><span class="soft">Work</span></span></div>
   <div id="stage"></div>
   <div id="side">
     <div id="bar"><div id="pill"></div></div>
     <div class="gear" id="gear" data-i18n-title="settings" title="Cài đặt">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </div>
+    <div class="brand"><span class="wordmark"><span>simple</span><span class="soft">Work</span></span><span class="ver" id="ver"></span></div>
   </div>
   <script src="i18n.js"></script>
   <script src="theme.js"></script>

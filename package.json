@@ -24,7 +24,7 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [{ "target": "dmg", "arch": ["arm64"] }],
-      "icon": "build/icon.png",
+      "icon": "build/icon.icns",
       "identity": "-",
       "hardenedRuntime": false
     },

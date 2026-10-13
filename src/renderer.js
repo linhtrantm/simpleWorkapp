@@ -2,6 +2,7 @@ const bar = document.getElementById('bar');
 const pill = document.getElementById('pill');
 const gear = document.getElementById('gear');
 const stage = document.getElementById('stage');
+const ver = document.getElementById('ver');
 const items = new Map(); // id -> { item, icon, badge, count }
 let lang = 'vi';
 let last = null; // state gần nhất, dùng để vẽ lại khi đổi kích thước
@@ -117,6 +118,7 @@ function renderStage(state, tab) {
 function render(state) {
   last = state;
   const { tabs, activeId, settingsOpen, ui } = state;
+  const handedOff = new Set(state.handoff || []);
   lang = state.lang || 'vi';
   i18n.apply(lang, document);
   swTheme.apply(state.accent, document);
@@ -126,6 +128,9 @@ function render(state) {
   root.setProperty('--icon', ui.icon + 'px');
   root.setProperty('--glyph', ui.glyph + 'px');
   root.setProperty('--label-display', ui.label ? 'block' : 'none');
+  root.setProperty('--top', ui.top + 'px');
+  root.setProperty('--brand-display', ui.width >= 74 ? 'inline-flex' : 'none');
+  ver.textContent = state.version ? 'v' + state.version : '';
   root.setProperty('--label-size', (ui.labelSize || 9.5) + 'px');
 
   const ids = new Set(tabs.map((t) => t.id));
@@ -147,6 +152,7 @@ function render(state) {
     if (anchor !== entry.item) bar.insertBefore(entry.item, anchor || null);
     const active = !settingsOpen && t.id === activeId;
     entry.item.classList.toggle('active', active);
+    entry.item.classList.toggle('handoff', handedOff.has(t.id));
     if (active) activeEl = entry.item;
     entry.badge.hidden = !(t.unread > 0);
     entry.badge.textContent = t.unread > 0 ? t.unread : '';
