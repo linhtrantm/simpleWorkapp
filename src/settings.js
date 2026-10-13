@@ -5,7 +5,7 @@ const path = require('path');
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
 // { disabled: ['teams', ...], iconLevel: 1..6, customApps: [{ id, name, url, color }], lang: 'vi'|'en',
-// theme: 'system'|'light'|'dark', accent: orange|blue|purple|pink|green, order: [id...] }
+// theme: 'system'|'light'|'dark', accent: orange|blue|purple|pink|green, order: [id...], notifySound: true|false }
 // mặc định tất cả app đều bật
 function load() {
   try {
@@ -16,6 +16,7 @@ function load() {
         ? data.iconLevel
         : { small: 1, medium: 4, large: 5 }[data.iconSize] || 4, // chuyển từ 3 mức cũ
       lang: data.lang === 'en' ? 'en' : 'vi',
+      notifySound: data.notifySound !== false,
       theme: ['system', 'light', 'dark'].includes(data.theme) ? data.theme : 'system',
       accent: ['orange', 'blue', 'purple', 'pink', 'green'].includes(data.accent) ? data.accent : 'orange',
       order: Array.isArray(data.order) ? data.order.filter((x) => typeof x === 'string') : [],
@@ -24,7 +25,7 @@ function load() {
         : []
     };
   } catch {
-    return { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
+    return { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [], notifySound: true };
   }
 }
 

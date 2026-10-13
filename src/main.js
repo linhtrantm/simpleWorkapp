@@ -1,5 +1,12 @@
-const { app, BrowserWindow, WebContentsView, Notification, Tray, Menu, nativeImage, nativeTheme, session, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, WebContentsView, Notification, Tray, Menu, nativeImage, nativeTheme, powerSaveBlocker, session, shell, ipcMain } = require('electron');
+const fs = require('fs');
 const path = require('path');
+// Không để Chromium làm chậm/đóng băng các tab chạy nền khi cửa sổ bị che hoặc ẩn,
+// nếu không tin nhắn và thông báo sẽ đến chậm hoặc chập chờn.
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+
 const builtinTabs = require('./tabs.config');
 const settingsStore = require('./settings');
 const i18n = require('./i18n');
@@ -30,7 +37,7 @@ let quitting = false;
 let settingsView = null;
 let settingsOpen = false;
 let splashView = null;
-let settings = { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
+let settings = { notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
@@ -119,6 +126,7 @@ function settingsState() {
     lang: settings.lang,
     theme: settings.theme,
     accent: settings.accent,
+    notifySound: settings.notifySound,
     apps: allTabs().map((t) => ({
       id: t.id, name: t.name, icon: t.icon, letter: t.letter, color: t.color, custom: !!t.custom, enabled: isEnabled(t.id)
     }))
@@ -251,8 +259,22 @@ function setLoad(id, state, err) {
 }
 
 // Chỉ hiện trang của tab đang chọn và đã tải xong
+// App có keepAlive (Teams) vẫn được "hiện" nằm dưới app đang xem để trình duyệt tiếp tục vẽ khung hình,
+// nếu ẩn hẳn thì trang nặng đứng yên tới khi được bấm vào.
+let raisedId = null;
 function applyVisibility() {
-  for (const [vid, v] of views) v.setVisible(vid === activeId && loadState.get(vid) === 'ready');
+  const activeReady = !!activeId && loadState.get(activeId) === 'ready';
+  for (const [vid, v] of views) {
+    const tab = tabById(vid);
+    v.setVisible(activeReady && (vid === activeId || !!(tab && tab.keepAlive)));
+  }
+  // Đưa app đang xem lên trên cùng, rồi đưa các lớp phủ (Cài đặt, loader) lên trên nữa
+  if (activeReady && raisedId !== activeId && views.has(activeId) && win) {
+    win.contentView.addChildView(views.get(activeId));
+    if (settingsView && settingsOpen) win.contentView.addChildView(settingsView);
+    if (splashView) win.contentView.addChildView(splashView);
+    raisedId = activeId;
+  }
 }
 
 function destroyView(id) {
@@ -261,6 +283,7 @@ function destroyView(id) {
   win.contentView.removeChildView(view);
   view.webContents.close();
   views.delete(id);
+  if (raisedId === id) raisedId = null;
   clearTimeout(loadTimers.get(id));
   loadState.delete(id);
   loadError.delete(id);
@@ -503,6 +526,15 @@ function createWindow() {
   });
 }
 
+// Nhật ký thông báo (userData/notify.log) để biết thông báo bị mất ở khâu nào
+function logNotify(line) {
+  try {
+    const file = path.join(app.getPath('userData'), 'notify.log');
+    if (fs.existsSync(file) && fs.statSync(file).size > 200 * 1024) fs.renameSync(file, file + '.old');
+    fs.appendFileSync(file, `${new Date().toISOString()} ${line}\n`);
+  } catch {}
+}
+
 // Thông báo từ trang web -> thông báo gốc macOS; bấm vào thì mở app và chuyển đúng tab
 const liveNotifications = new Set();
 ipcMain.on('notify:show', (e, { id, title, body }) => {
@@ -510,13 +542,17 @@ ipcMain.on('notify:show', (e, { id, title, body }) => {
   let tabId = null;
   for (const [vid, v] of views) if (v.webContents === e.sender) tabId = vid;
   // Bỏ qua nếu đang xem đúng tab này và cửa sổ đang được focus
-  if (tabId && tabId === activeId && !settingsOpen && win && win.isVisible() && win.isFocused()) return;
+  if (tabId && tabId === activeId && !settingsOpen && win && win.isVisible() && win.isFocused()) {
+    logNotify(`skip(đang xem) ${tabId} "${String(title).slice(0, 40)}"`);
+    return;
+  }
+  logNotify(`show ${tabId} "${String(title).slice(0, 40)}" sound=${settings.notifySound}`);
   if (tabId) {
     notifUnread.set(tabId, (notifUnread.get(tabId) || 0) + 1);
     refreshUnread(tabId);
   }
   const appName = tabId ? tabById(tabId).name : 'simpleWork';
-  const n = new Notification({ title: `${appName} · ${String(title)}`.slice(0, 200), body: String(body || '').slice(0, 500), silent: true });
+  const n = new Notification({ title: `${appName} · ${String(title)}`.slice(0, 200), body: String(body || '').slice(0, 500), silent: !settings.notifySound });
   liveNotifications.add(n); // giữ tham chiếu để không bị thu gom trước khi bấm
   n.on('click', () => {
     if (!win) createWindow();
@@ -526,6 +562,7 @@ ipcMain.on('notify:show', (e, { id, title, body }) => {
     if (!e.sender.isDestroyed()) e.sender.send('notify:click', id);
   });
   n.on('close', () => liveNotifications.delete(n));
+  n.on('failed', (_ev, err) => logNotify(`FAILED ${tabId} ${err}`));
   n.show();
 });
 
@@ -586,6 +623,11 @@ ipcMain.on('settings:set-lang', (_e, lang) => {
   sendState(); // cập nhật cả tray (refreshTray) lẫn thanh bên
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
+ipcMain.on('settings:set-notify-sound', (_e, on) => {
+  settings.notifySound = !!on;
+  settingsStore.save(settings);
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+});
 ipcMain.on('settings:set-theme', (_e, theme) => {
   if (!['system', 'light', 'dark'].includes(theme)) return;
   settings.theme = theme;
@@ -620,6 +662,8 @@ app.whenReady().then(() => {
   settings = settingsStore.load();
   // Phòng trường hợp file settings tắt hết
   if (enabledTabs().length === 0) settings.disabled = [];
+  // Chặn macOS App Nap làm app ngủ khi chạy nền (gây trễ tin nhắn và thông báo)
+  powerSaveBlocker.start('prevent-app-suspension');
   nativeTheme.themeSource = settings.theme;
   nativeTheme.on('updated', () => {
     if (settingsView) settingsView.setBackgroundColor(cardColor());

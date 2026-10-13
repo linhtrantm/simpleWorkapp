@@ -2,6 +2,8 @@
 // icon (svg, thư mục src/icons) + color (màu nền): hiển thị trên menu trái trên menu trái.
 // disableWebAuthn: true = tắt passkey (Electron không hỗ trợ) để trang đăng nhập dùng mật khẩu/mã.
 // internalHosts: các host được điều hướng trong chính tab; link khác mở bằng trình duyệt mặc định.
+// keepAlive: true = app nặng cần trình duyệt vẽ khung hình mới chạy nền được (ví dụ Teams); giữ trang
+// "hiện" nhưng nằm dưới app đang xem. Tốn thêm CPU nên chỉ bật cho app thật sự cần.
 // authHosts: các host đăng nhập, được phép mở bằng cửa sổ popup trong app (OAuth, MSAL...).
 // Link người dùng bấm trong chat (target=_blank) luôn mở bằng trình duyệt mặc định.
 module.exports = [
@@ -28,6 +30,7 @@ module.exports = [
     name: 'Teams',
     url: 'https://teams.microsoft.com',
     partition: 'persist:TeamsWeb',
+    keepAlive: true,
     disableWebAuthn: true,
     icon: 'icons/microsoftteams.svg',
     color: '#5b5fc7',

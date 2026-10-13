@@ -43,4 +43,14 @@ webFrame.executeJavaScript(`(() => {
     static get maxActions() { return 0; }
   }
   Object.defineProperty(window, 'Notification', { value: SWNotification, configurable: true, writable: true });
+  // Nhiều trang (Teams, Messenger...) gửi thông báo qua Service Worker thay vì new Notification
+  try {
+    if (window.ServiceWorkerRegistration) {
+      ServiceWorkerRegistration.prototype.showNotification = function (title, options) {
+        new SWNotification(title, options);
+        return Promise.resolve();
+      };
+      ServiceWorkerRegistration.prototype.getNotifications = function () { return Promise.resolve([]); };
+    }
+  } catch (e) {}
 })();`);

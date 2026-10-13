@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('simpleWork', {
   onSettings: (cb) => ipcRenderer.on('settings:state', (_e, s) => cb(s)),
   setEnabled: (id, enabled) => ipcRenderer.send('settings:set-enabled', id, enabled),
   setIconSize: (size) => ipcRenderer.send('settings:set-icon-size', size),
+  setNotifySound: (on) => ipcRenderer.send('settings:set-notify-sound', on),
   setTheme: (theme) => ipcRenderer.send('settings:set-theme', theme),
   setAccent: (accent) => ipcRenderer.send('settings:set-accent', accent),
   setOrder: (ids) => ipcRenderer.send('settings:set-order', ids),

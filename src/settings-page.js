@@ -1,6 +1,8 @@
 const list = document.getElementById('list');
 const ver = document.getElementById('ver');
 const page = document.getElementById('page');
+const notifSound = document.getElementById('notif-sound');
+notifSound.addEventListener('change', () => window.simpleWork.setNotifySound(notifSound.checked));
 const level = document.getElementById('level');
 const lv = document.getElementById('lv');
 const langs = document.getElementById('langs');
@@ -96,13 +98,14 @@ list.addEventListener('dragover', (e) => {
 });
 list.addEventListener('drop', (e) => e.preventDefault());
 
-function render({ apps, version, iconLevel, lang: newLang, theme, accent }) {
+function render({ apps, version, iconLevel, lang: newLang, theme, accent, notifySound }) {
   lang = newLang || 'vi';
   i18n.apply(lang, document);
   swTheme.apply(accent, document);
   for (const b of langs.children) b.classList.toggle('on', b.dataset.lang === lang);
   if (document.activeElement !== level) level.value = iconLevel || 4;
   paintLevel();
+  notifSound.checked = notifySound !== false;
   for (const b of themes.children) b.classList.toggle('on', b.dataset.theme === theme);
   for (const b of accents.children) b.classList.toggle('on', b.dataset.accent === accent);
   ver.textContent = 'v' + version;
