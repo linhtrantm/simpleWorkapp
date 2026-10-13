@@ -69,6 +69,18 @@
     .seg button { border: 0; background: transparent; color: var(--muted); font: 600 12.5px -apple-system, BlinkMacSystemFont, sans-serif; padding: 8px 18px; border-radius: 10px; cursor: pointer; transition: all .2s; }
     .seg button:hover { color: var(--text); }
     .seg button.on { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--on-accent); box-shadow: 0 6px 16px -8px var(--accent); }
+    .dock { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; padding: 16px 18px; }
+    .dock .mini, .dock .maxi { flex: none; border-radius: 28%; background: linear-gradient(150deg, var(--accent2), var(--accent)); box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 4px 10px -4px var(--accent); }
+    .dock .mini { width: 16px; height: 16px; } .dock .maxi { width: 30px; height: 30px; }
+    .dock .sl { position: relative; flex: 1; height: 28px; }
+    .dock .ticks { position: absolute; left: 11px; right: 11px; top: 50%; height: 0; display: flex; justify-content: space-between; pointer-events: none; }
+    .dock .ticks i { width: 2px; height: 10px; margin-top: -5px; margin-left: -1px; border-radius: 1px; background: var(--muted); opacity: .45; }
+    .dock .ticks i:first-child { margin-left: 0; } .dock .ticks i:last-child { margin-left: -2px; }
+    .dock .lv { flex: none; width: 24px; text-align: right; font: 600 12px var(--mono); color: var(--muted); }
+    #level { -webkit-appearance: none; appearance: none; position: relative; z-index: 1; width: 100%; height: 28px; background: transparent; outline: none; cursor: pointer; --pct: 60%; }
+    #level::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--accent) var(--pct), var(--surface2) var(--pct)); }
+    #level::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -9px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.4), 0 0 0 1px rgba(0,0,0,.08); transition: transform .15s cubic-bezier(.34, 1.56, .64, 1); }
+    #level:active::-webkit-slider-thumb { transform: scale(1.12); }
     .acc button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform .2s cubic-bezier(.34, 1.56, .64, 1); box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 4px 10px -4px rgba(0,0,0,.4); }
     .acc button:hover { transform: scale(1.12); }
     .acc button.on { border-color: var(--text); box-shadow: 0 0 0 3px var(--card) inset; }
@@ -119,10 +131,14 @@
     </div>
     <div class="section">
       <h2 data-i18n="sizeHeading">Kích thước icon</h2>
-      <div class="seg" id="sizes">
-        <button data-size="small" data-i18n="small">Nhỏ</button>
-        <button data-size="medium" data-i18n="medium">Vừa</button>
-        <button data-size="large" data-i18n="large">Lớn</button>
+      <div class="dock">
+        <span class="mini"></span>
+        <div class="sl">
+          <input type="range" id="level" min="1" max="6" step="1" value="4">
+          <div class="ticks"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <span class="maxi"></span>
+        <span class="lv" id="lv">4</span>
       </div>
       <p class="note" data-i18n="sizeNote">Nhỏ chỉ hiện icon, Vừa và Lớn hiện thêm tên app.</p>
     </div>

@@ -1,8 +1,6 @@
 const bar = document.getElementById('bar');
 const pill = document.getElementById('pill');
 const gear = document.getElementById('gear');
-const title = document.getElementById('title');
-const ext = document.getElementById('ext');
 const stage = document.getElementById('stage');
 const items = new Map(); // id -> { item, icon, badge, count }
 let lang = 'vi';
@@ -10,7 +8,6 @@ let last = null; // state gần nhất, dùng để vẽ lại khi đổi kích 
 let pillAnimated = false;
 
 gear.addEventListener('mousedown', () => window.simpleWork.toggleSettings());
-ext.addEventListener('mousedown', () => window.simpleWork.openExternal());
 
 function gradientFor(color) {
   return `linear-gradient(150deg, color-mix(in srgb, ${color} 70%, #fff), ${color})`;
@@ -119,7 +116,7 @@ function renderStage(state, tab) {
 
 function render(state) {
   last = state;
-  const { tabs, activeId, settingsOpen, canOpenExternal, ui } = state;
+  const { tabs, activeId, settingsOpen, ui } = state;
   lang = state.lang || 'vi';
   i18n.apply(lang, document);
   swTheme.apply(state.accent, document);
@@ -129,7 +126,7 @@ function render(state) {
   root.setProperty('--icon', ui.icon + 'px');
   root.setProperty('--glyph', ui.glyph + 'px');
   root.setProperty('--label-display', ui.label ? 'block' : 'none');
-  ext.style.display = canOpenExternal && !settingsOpen ? 'flex' : 'none';
+  root.setProperty('--label-size', (ui.labelSize || 9.5) + 'px');
 
   const ids = new Set(tabs.map((t) => t.id));
   for (const [id, entry] of items) {
@@ -164,7 +161,6 @@ function render(state) {
   gear.classList.toggle('active', !!settingsOpen);
 
   const current = tabs.find((t) => t.id === activeId);
-  title.textContent = settingsOpen ? i18n.t(lang, 'settings') : current ? current.name : 'simpleWork';
   document.body.style.setProperty('--tint', settingsOpen || !current ? 'var(--accent)' : current.color);
   renderStage(state, settingsOpen ? null : current);
 

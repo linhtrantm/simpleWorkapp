@@ -5,12 +5,15 @@ const settingsStore = require('./settings');
 const i18n = require('./i18n');
 
 // Kích thước thanh bên theo cỡ icon (px)
-const ICON_SIZES = {
-  small: { width: 56, icon: 32, glyph: 18, label: false },
-  medium: { width: 76, icon: 38, glyph: 21, label: true },
-  large: { width: 84, icon: 42, glyph: 24, label: true }
-};
-const TOPBAR_HEIGHT = 30; // thanh kéo cửa sổ phía trên vùng nội dung
+const ICON_LEVELS = [
+  { width: 52, icon: 30, glyph: 17, label: false, labelSize: 9.5 },
+  { width: 60, icon: 34, glyph: 19, label: false, labelSize: 9.5 },
+  { width: 70, icon: 36, glyph: 20, label: true, labelSize: 9.5 },
+  { width: 76, icon: 40, glyph: 22, label: true, labelSize: 9.5 },
+  { width: 86, icon: 46, glyph: 26, label: true, labelSize: 10 },
+  { width: 98, icon: 54, glyph: 30, label: true, labelSize: 11 }
+];
+const TOPBAR_HEIGHT = 20; // dải kéo cửa sổ mỏng phía trên vùng nội dung
 const CARD_RADIUS = 12; // góc bo của "tấm thẻ" chứa nội dung web
 const CARD_MARGIN = 8; // khoảng cách tấm thẻ với mép phải/dưới cửa sổ
 const LOAD_TIMEOUT_MS = 10000; // quá thời gian này vẫn hiện trang dù chưa báo tải xong
@@ -27,7 +30,7 @@ let quitting = false;
 let settingsView = null;
 let settingsOpen = false;
 let splashView = null;
-let settings = { disabled: [], iconSize: 'medium', customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
+let settings = { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
@@ -39,7 +42,7 @@ const loadTimers = new Map();
 const notifUnread = new Map(); // id -> số thông báo nhận khi chưa xem (dự phòng cho app title không có số)
 
 const T = (key, vars) => i18n.t(settings.lang, key, vars);
-const ui = () => ICON_SIZES[settings.iconSize] || ICON_SIZES.medium;
+const ui = () => ICON_LEVELS[(settings.iconLevel || 4) - 1] || ICON_LEVELS[3];
 // App tuỳ ý (người dùng thêm trong Cài đặt) được chuyển thành entry giống tabs.config
 function customToTab(c) {
   let host = '';
@@ -112,7 +115,7 @@ function sendState() {
 function settingsState() {
   return {
     version: app.getVersion(),
-    iconSize: settings.iconSize,
+    iconLevel: settings.iconLevel,
     lang: settings.lang,
     theme: settings.theme,
     accent: settings.accent,
@@ -461,7 +464,7 @@ function createWindow() {
     vibrancy: 'sidebar', // kính mờ gốc của macOS cho thanh bên
     visualEffectState: 'active',
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 13, y: 9 },
+    trafficLightPosition: { x: 13, y: 4 },
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -543,7 +546,17 @@ ipcMain.on('tabs:reload', (_e, id) => reloadTab(id));
 ipcMain.on('tabs:menu', (_e, id) => {
   const tab = tabById(id);
   if (!tab || !win) return;
-  Menu.buildFromTemplate([{ label: T('reload', { name: tab.name }), click: () => reloadTab(id) }]).popup({ window: win });
+  Menu.buildFromTemplate([
+    { label: T('reload', { name: tab.name }), click: () => reloadTab(id) },
+    {
+      label: T('openInBrowserMenu'),
+      click: () => {
+        const v = views.get(id);
+        const url = v && v.webContents.getURL();
+        if (url && /^https?:/.test(url)) shell.openExternal(url);
+      }
+    }
+  ]).popup({ window: win });
 });
 ipcMain.on('tabs:ready', sendState);
 ipcMain.on('tabs:open-external', () => {
@@ -555,13 +568,15 @@ ipcMain.on('tabs:open-external', () => {
 ipcMain.on('settings:toggle', () => setSettingsOpen(!settingsOpen));
 ipcMain.on('settings:close', () => setSettingsOpen(false));
 ipcMain.handle('settings:get', settingsState);
-ipcMain.on('settings:set-icon-size', (_e, size) => {
-  if (!ICON_SIZES[size]) return;
-  settings.iconSize = size;
-  settingsStore.save(settings);
+let saveTimer = null;
+ipcMain.on('settings:set-icon-size', (_e, level) => {
+  level = Math.round(Number(level));
+  if (!(level >= 1 && level <= ICON_LEVELS.length)) return;
+  settings.iconLevel = level;
   layout();
-  sendState();
-  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+  sendState(); // thanh bên đổi cỡ ngay khi kéo thanh trượt
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => settingsStore.save(settings), 300);
 });
 ipcMain.on('settings:set-lang', (_e, lang) => {
   if (lang !== 'vi' && lang !== 'en') return;

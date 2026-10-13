@@ -4,7 +4,7 @@ const path = require('path');
 
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
-// { disabled: ['teams', ...], iconSize: 'small'|'medium'|'large', customApps: [{ id, name, url, color }], lang: 'vi'|'en',
+// { disabled: ['teams', ...], iconLevel: 1..6, customApps: [{ id, name, url, color }], lang: 'vi'|'en',
 // theme: 'system'|'light'|'dark', accent: orange|blue|purple|pink|green, order: [id...] }
 // mặc định tất cả app đều bật
 function load() {
@@ -12,7 +12,9 @@ function load() {
     const data = JSON.parse(fs.readFileSync(file(), 'utf8'));
     return {
       disabled: Array.isArray(data.disabled) ? data.disabled : [],
-      iconSize: data.iconSize || 'medium',
+      iconLevel: Number.isInteger(data.iconLevel) && data.iconLevel >= 1 && data.iconLevel <= 6
+        ? data.iconLevel
+        : { small: 1, medium: 4, large: 5 }[data.iconSize] || 4, // chuyển từ 3 mức cũ
       lang: data.lang === 'en' ? 'en' : 'vi',
       theme: ['system', 'light', 'dark'].includes(data.theme) ? data.theme : 'system',
       accent: ['orange', 'blue', 'purple', 'pink', 'green'].includes(data.accent) ? data.accent : 'orange',
@@ -22,7 +24,7 @@ function load() {
         : []
     };
   } catch {
-    return { disabled: [], iconSize: 'medium', customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
+    return { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
   }
 }
 

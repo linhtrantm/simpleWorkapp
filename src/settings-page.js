@@ -1,7 +1,8 @@
 const list = document.getElementById('list');
 const ver = document.getElementById('ver');
 const page = document.getElementById('page');
-const sizes = document.getElementById('sizes');
+const level = document.getElementById('level');
+const lv = document.getElementById('lv');
 const langs = document.getElementById('langs');
 const themes = document.getElementById('themes');
 const accents = document.getElementById('accents');
@@ -28,9 +29,14 @@ window.simpleWork.onShown(() => {
 const errText = (code) => i18n.t(lang, { name: 'errName', url: 'errUrl', last: 'errLast' }[code] || 'errGeneric');
 const gradientFor = (c) => `linear-gradient(150deg, color-mix(in srgb, ${c} 70%, #fff), ${c})`;
 
-sizes.addEventListener('click', (e) => {
-  const size = e.target.dataset && e.target.dataset.size;
-  if (size) window.simpleWork.setIconSize(size);
+function paintLevel() {
+  lv.textContent = level.value;
+  level.style.setProperty('--pct', ((level.value - 1) / 5) * 100 + '%');
+}
+// Kéo thanh trượt là thanh bên đổi cỡ ngay (như thanh phóng to Dock)
+level.addEventListener('input', () => {
+  paintLevel();
+  window.simpleWork.setIconSize(Number(level.value));
 });
 langs.addEventListener('click', (e) => {
   const l = e.target.dataset && e.target.dataset.lang;
@@ -90,12 +96,13 @@ list.addEventListener('dragover', (e) => {
 });
 list.addEventListener('drop', (e) => e.preventDefault());
 
-function render({ apps, version, iconSize, lang: newLang, theme, accent }) {
+function render({ apps, version, iconLevel, lang: newLang, theme, accent }) {
   lang = newLang || 'vi';
   i18n.apply(lang, document);
   swTheme.apply(accent, document);
   for (const b of langs.children) b.classList.toggle('on', b.dataset.lang === lang);
-  for (const b of sizes.children) b.classList.toggle('on', b.dataset.size === iconSize);
+  if (document.activeElement !== level) level.value = iconLevel || 4;
+  paintLevel();
   for (const b of themes.children) b.classList.toggle('on', b.dataset.theme === theme);
   for (const b of accents.children) b.classList.toggle('on', b.dataset.accent === accent);
   ver.textContent = 'v' + version;
