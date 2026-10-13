@@ -1,21 +1,58 @@
 const list = document.getElementById('list');
 const ver = document.getElementById('ver');
-document.getElementById('close').addEventListener('click', () => window.simpleWork.closeSettings());
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') window.simpleWork.closeSettings();
-});
-
+const page = document.getElementById('page');
 const sizes = document.getElementById('sizes');
+const langs = document.getElementById('langs');
+const themes = document.getElementById('themes');
+const accents = document.getElementById('accents');
 const errEl = document.getElementById('err');
 const nameEl = document.getElementById('app-name');
 const urlEl = document.getElementById('app-url');
 const swatchesEl = document.getElementById('swatches');
 const COLORS = ['#3B82F6', '#06b6d4', '#10b981', '#84cc16', '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6', '#64748b'];
 let color = COLORS[0];
+let lang = 'vi';
+
+document.getElementById('close').addEventListener('click', () => window.simpleWork.closeSettings());
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') window.simpleWork.closeSettings();
+});
+
+// Hiệu ứng xuất hiện mỗi lần mở trang
+window.simpleWork.onShown(() => {
+  page.classList.remove('enter');
+  void page.offsetWidth;
+  page.classList.add('enter');
+});
+
+const errText = (code) => i18n.t(lang, { name: 'errName', url: 'errUrl', last: 'errLast' }[code] || 'errGeneric');
+const gradientFor = (c) => `linear-gradient(150deg, color-mix(in srgb, ${c} 70%, #fff), ${c})`;
+
+sizes.addEventListener('click', (e) => {
+  const size = e.target.dataset && e.target.dataset.size;
+  if (size) window.simpleWork.setIconSize(size);
+});
+langs.addEventListener('click', (e) => {
+  const l = e.target.dataset && e.target.dataset.lang;
+  if (l) window.simpleWork.setLang(l);
+});
+themes.addEventListener('click', (e) => {
+  const th = e.target.dataset && e.target.dataset.theme;
+  if (th) window.simpleWork.setTheme(th);
+});
+
+Object.entries(swTheme.ACCENTS).forEach(([key, [a, b]]) => {
+  const btn = document.createElement('button');
+  btn.dataset.accent = key;
+  btn.title = key;
+  btn.style.background = `linear-gradient(135deg, ${a}, ${b})`;
+  btn.addEventListener('click', () => window.simpleWork.setAccent(key));
+  accents.appendChild(btn);
+});
 
 COLORS.forEach((c) => {
   const b = document.createElement('button');
-  b.style.background = c;
+  b.style.background = gradientFor(c);
   b.title = c;
   b.addEventListener('click', () => {
     color = c;
@@ -36,35 +73,63 @@ async function submitApp() {
   }
 }
 document.getElementById('add').addEventListener('click', submitApp);
-[nameEl, urlEl].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitApp(); }));
-sizes.addEventListener('click', (e) => {
-  const size = e.target.dataset && e.target.dataset.size;
-  if (size) window.simpleWork.setIconSize(size);
-});
+[nameEl, urlEl].forEach((el) =>
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitApp();
+  })
+);
 
-let lang = 'vi';
-const langs = document.getElementById('langs');
-langs.addEventListener('click', (e) => {
-  const l = e.target.dataset && e.target.dataset.lang;
-  if (l) window.simpleWork.setLang(l);
+// Kéo thả đổi thứ tự: đổi chỗ ngay trên DOM, thả chuột thì gửi thứ tự mới
+let dragRow = null;
+list.addEventListener('dragover', (e) => {
+  if (!dragRow) return;
+  e.preventDefault();
+  const over = [...list.children].find((r) => r !== dragRow && e.clientY < r.getBoundingClientRect().top + r.offsetHeight / 2);
+  if (over) list.insertBefore(dragRow, over);
+  else list.appendChild(dragRow);
 });
-const errText = (code) => i18n.t(lang, { name: 'errName', url: 'errUrl', last: 'errLast' }[code] || 'errGeneric');
+list.addEventListener('drop', (e) => e.preventDefault());
 
-function render({ apps, version, iconSize, lang: newLang }) {
+function render({ apps, version, iconSize, lang: newLang, theme, accent }) {
   lang = newLang || 'vi';
   i18n.apply(lang, document);
+  swTheme.apply(accent, document);
   for (const b of langs.children) b.classList.toggle('on', b.dataset.lang === lang);
-  ver.textContent = 'v' + version;
   for (const b of sizes.children) b.classList.toggle('on', b.dataset.size === iconSize);
+  for (const b of themes.children) b.classList.toggle('on', b.dataset.theme === theme);
+  for (const b of accents.children) b.classList.toggle('on', b.dataset.accent === accent);
+  ver.textContent = 'v' + version;
+
   const enabledCount = apps.filter((a) => a.enabled).length;
   list.replaceChildren(
     ...apps.map((a) => {
       const row = document.createElement('div');
       row.className = 'row' + (a.enabled ? '' : ' off');
+      row.dataset.id = a.id;
+
+      const grip = document.createElement('div');
+      grip.className = 'grip';
+      grip.textContent = '⋮⋮';
+      grip.title = i18n.t(lang, 'dragTitle');
+      grip.addEventListener('mousedown', () => (row.draggable = true));
+      row.addEventListener('mouseup', () => (row.draggable = false));
+      row.addEventListener('dragstart', (e) => {
+        dragRow = row;
+        row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', a.id);
+      });
+      row.addEventListener('dragend', () => {
+        row.classList.remove('dragging');
+        row.draggable = false;
+        dragRow = null;
+        window.simpleWork.setOrder([...list.children].map((r) => r.dataset.id));
+      });
+      row.appendChild(grip);
 
       const ico = document.createElement('div');
       ico.className = 'ico';
-      ico.style.background = a.color;
+      ico.style.background = gradientFor(a.color);
       if (a.icon) {
         const img = document.createElement('img');
         img.src = a.icon;

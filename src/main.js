@@ -1,4 +1,4 @@
-const { app, BrowserWindow, WebContentsView, Notification, Tray, Menu, nativeImage, session, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, WebContentsView, Notification, Tray, Menu, nativeImage, nativeTheme, session, shell, ipcMain } = require('electron');
 const path = require('path');
 const builtinTabs = require('./tabs.config');
 const settingsStore = require('./settings');
@@ -11,9 +11,13 @@ const ICON_SIZES = {
   large: { width: 84, icon: 42, glyph: 24, label: true }
 };
 const TOPBAR_HEIGHT = 30; // thanh kéo cửa sổ phía trên vùng nội dung
+const CARD_RADIUS = 12; // góc bo của "tấm thẻ" chứa nội dung web
+const CARD_MARGIN = 8; // khoảng cách tấm thẻ với mép phải/dưới cửa sổ
+const LOAD_TIMEOUT_MS = 10000; // quá thời gian này vẫn hiện trang dù chưa báo tải xong
 const SPLASH_MIN_MS = 1600;
 const SPLASH_MAX_MS = 10000;
-const BG = '#050810';
+const bgColor = () => (nativeTheme.shouldUseDarkColors ? '#050810' : '#eef1f7');
+const cardColor = () => (nativeTheme.shouldUseDarkColors ? '#0b1020' : '#ffffff');
 const USER_AGENT =
   `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`;
 
@@ -23,12 +27,15 @@ let quitting = false;
 let settingsView = null;
 let settingsOpen = false;
 let splashView = null;
-let settings = { disabled: [], iconSize: 'medium', customApps: [], lang: 'vi' };
+let settings = { disabled: [], iconSize: 'medium', customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
 const unread = new Map(); // id -> số hiển thị trên badge
 const titleUnread = new Map(); // id -> số đọc từ title trang "(3) ..."
+const loadState = new Map(); // id -> 'loading' | 'ready' | 'failed'
+const loadError = new Map();
+const loadTimers = new Map();
 const notifUnread = new Map(); // id -> số thông báo nhận khi chưa xem (dự phòng cho app title không có số)
 
 const T = (key, vars) => i18n.t(settings.lang, key, vars);
@@ -50,7 +57,14 @@ function customToTab(c) {
     internalHosts: host ? [host] : []
   };
 }
-const allTabs = () => [...builtinTabs, ...settings.customApps.map(customToTab)];
+const allTabs = () => {
+  const base = [...builtinTabs, ...settings.customApps.map(customToTab)];
+  const rank = (t) => {
+    const i = settings.order.indexOf(t.id);
+    return i < 0 ? 1e6 + base.indexOf(t) : i;
+  };
+  return base.slice().sort((a, b) => rank(a) - rank(b));
+};
 const tabById = (id) => allTabs().find((t) => t.id === id);
 const isEnabled = (id) => !settings.disabled.includes(id);
 const enabledTabs = () => allTabs().filter((t) => isEnabled(t.id));
@@ -67,7 +81,12 @@ function hostMatches(url, hosts) {
 function layout() {
   if (!win) return;
   const [w, h] = win.getContentSize();
-  const content = { x: ui().width, y: TOPBAR_HEIGHT, width: Math.max(0, w - ui().width), height: Math.max(0, h - TOPBAR_HEIGHT) };
+  const content = {
+    x: ui().width,
+    y: TOPBAR_HEIGHT,
+    width: Math.max(0, w - ui().width - CARD_MARGIN),
+    height: Math.max(0, h - TOPBAR_HEIGHT - CARD_MARGIN)
+  };
   for (const v of views.values()) v.setBounds(content);
   if (settingsView) settingsView.setBounds(content);
   if (splashView) splashView.setBounds({ x: 0, y: 0, width: w, height: h });
@@ -82,8 +101,10 @@ function sendState() {
     })),
     activeId,
     settingsOpen,
-    canOpenExternal: !!(activeId && tabById(activeId).canOpenExternal),
+    canOpenExternal: !!activeId,
+    load: { state: (activeId && loadState.get(activeId)) || 'ready', error: (activeId && loadError.get(activeId)) || '' },
     lang: settings.lang,
+    accent: settings.accent,
     ui: ui()
   });
 }
@@ -93,6 +114,8 @@ function settingsState() {
     version: app.getVersion(),
     iconSize: settings.iconSize,
     lang: settings.lang,
+    theme: settings.theme,
+    accent: settings.accent,
     apps: allTabs().map((t) => ({
       id: t.id, name: t.name, icon: t.icon, letter: t.letter, color: t.color, custom: !!t.custom, enabled: isEnabled(t.id)
     }))
@@ -144,6 +167,8 @@ function createView(tab) {
       backgroundThrottling: false // tab nền vẫn nhận tin
     }
   });
+  view.setBorderRadius(CARD_RADIUS);
+  view.setBackgroundColor(cardColor());
   view.setVisible(false);
   const wc = view.webContents;
   wc.setUserAgent(USER_AGENT);
@@ -188,14 +213,43 @@ function createView(tab) {
     refreshUnread(tab.id);
   });
 
-  wc.on('did-fail-load', (_e, code, desc, url, isMain) => {
-    if (isMain && code !== -3) console.error(`[${tab.id}] load fail ${code} ${desc} ${url}`);
+  // Trạng thái tải: ẩn trang web cho tới khi tải xong, trong lúc đó thanh bên hiện màn hình chờ
+  wc.on('did-stop-loading', () => {
+    if (loadState.get(tab.id) === 'loading') setLoad(tab.id, 'ready');
   });
-  wc.loadURL(tab.url);
+  wc.on('did-fail-load', (_e, code, desc, url, isMain) => {
+    if (!isMain || code === -3) return; // -3 = bị huỷ (điều hướng tiếp)
+    console.error(`[${tab.id}] load fail ${code} ${desc} ${url}`);
+    setLoad(tab.id, 'failed', `${desc} (${code})`);
+  });
   views.set(tab.id, view);
   win.contentView.addChildView(view);
   layout();
+  setLoad(tab.id, 'loading');
+  wc.loadURL(tab.url);
   return view;
+}
+
+function setLoad(id, state, err) {
+  loadState.set(id, state);
+  if (err) loadError.set(id, err);
+  else loadError.delete(id);
+  clearTimeout(loadTimers.get(id));
+  if (state === 'loading') {
+    loadTimers.set(
+      id,
+      setTimeout(() => {
+        if (loadState.get(id) === 'loading') setLoad(id, 'ready');
+      }, LOAD_TIMEOUT_MS)
+    );
+  }
+  applyVisibility();
+  sendState();
+}
+
+// Chỉ hiện trang của tab đang chọn và đã tải xong
+function applyVisibility() {
+  for (const [vid, v] of views) v.setVisible(vid === activeId && loadState.get(vid) === 'ready');
 }
 
 function destroyView(id) {
@@ -204,6 +258,9 @@ function destroyView(id) {
   win.contentView.removeChildView(view);
   view.webContents.close();
   views.delete(id);
+  clearTimeout(loadTimers.get(id));
+  loadState.delete(id);
+  loadError.delete(id);
   unread.delete(id);
   titleUnread.delete(id);
   notifUnread.delete(id);
@@ -215,8 +272,8 @@ function selectTab(id) {
   if (!tab) return;
   let view = views.get(id);
   if (!view) view = createView(tab);
-  for (const [vid, v] of views) v.setVisible(vid === id);
   activeId = id;
+  applyVisibility();
   notifUnread.delete(id);
   refreshUnread(id);
   setSettingsOpen(false);
@@ -229,7 +286,8 @@ function ensureSettingsView() {
   settingsView = new WebContentsView({
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true }
   });
-  settingsView.setBackgroundColor(BG);
+  settingsView.setBorderRadius(CARD_RADIUS);
+  settingsView.setBackgroundColor(cardColor());
   settingsView.setVisible(false);
   settingsView.webContents.loadFile(path.join(__dirname, 'settings.html'));
   win.contentView.addChildView(settingsView);
@@ -242,6 +300,7 @@ function setSettingsOpen(open) {
     ensureSettingsView();
     win.contentView.addChildView(settingsView); // đưa lên trên cùng
     settingsView.setVisible(true);
+    settingsView.webContents.send('settings:shown');
     settingsView.webContents.focus();
   } else if (settingsView) {
     settingsView.setVisible(false);
@@ -265,10 +324,8 @@ function applyEnabledChange(id, enabled) {
   } else {
     destroyView(id);
     if (activeId === id) {
-      activeId = null;
-      const first = enabledTabs()[0];
-      for (const [vid, v] of views) v.setVisible(vid === first.id);
-      activeId = first.id;
+      activeId = enabledTabs()[0].id;
+      applyVisibility();
     }
   }
   updateBadge();
@@ -374,7 +431,7 @@ function showSplash(readyPromise) {
   splashView = new WebContentsView({
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true }
   });
-  splashView.setBackgroundColor(BG);
+  splashView.setBackgroundColor(bgColor());
   splashView.webContents.loadFile(path.join(__dirname, 'splash.html'));
   win.contentView.addChildView(splashView);
   layout();
@@ -400,7 +457,9 @@ function createWindow() {
     minWidth: 860,
     minHeight: 520,
     title: 'simpleWork',
-    backgroundColor: BG,
+    backgroundColor: '#00000000',
+    vibrancy: 'sidebar', // kính mờ gốc của macOS cho thanh bên
+    visualEffectState: 'active',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 13, y: 9 },
     webPreferences: {
@@ -468,15 +527,28 @@ ipcMain.on('notify:show', (e, { id, title, body }) => {
 });
 
 ipcMain.on('tabs:select', (_e, id) => selectTab(id));
-ipcMain.on('tabs:reload', (_e, id) => {
+function reloadTab(id) {
   const v = views.get(id);
-  if (v) v.webContents.reload();
-  else selectTab(id);
+  const tab = tabById(id);
+  if (!v || !tab) {
+    selectTab(id);
+    return;
+  }
+  setLoad(id, 'loading');
+  if (loadError.has(id) || !v.webContents.getURL()) v.webContents.loadURL(tab.url);
+  else v.webContents.reload();
+}
+ipcMain.on('tabs:reload', (_e, id) => reloadTab(id));
+// Chuột phải vào icon app trên thanh bên
+ipcMain.on('tabs:menu', (_e, id) => {
+  const tab = tabById(id);
+  if (!tab || !win) return;
+  Menu.buildFromTemplate([{ label: T('reload', { name: tab.name }), click: () => reloadTab(id) }]).popup({ window: win });
 });
 ipcMain.on('tabs:ready', sendState);
 ipcMain.on('tabs:open-external', () => {
   const v = activeId && views.get(activeId);
-  if (!v || !tabById(activeId).canOpenExternal) return;
+  if (!v) return;
   const url = v.webContents.getURL();
   if (/^https?:/.test(url)) shell.openExternal(url);
 });
@@ -499,6 +571,30 @@ ipcMain.on('settings:set-lang', (_e, lang) => {
   sendState(); // cập nhật cả tray (refreshTray) lẫn thanh bên
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
+ipcMain.on('settings:set-theme', (_e, theme) => {
+  if (!['system', 'light', 'dark'].includes(theme)) return;
+  settings.theme = theme;
+  settingsStore.save(settings);
+  nativeTheme.themeSource = theme;
+  sendState();
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+});
+ipcMain.on('settings:set-accent', (_e, accent) => {
+  if (!['orange', 'blue', 'purple', 'pink', 'green'].includes(accent)) return;
+  settings.accent = accent;
+  settingsStore.save(settings);
+  sendState();
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+});
+ipcMain.on('settings:set-order', (_e, ids) => {
+  if (!Array.isArray(ids)) return;
+  const valid = new Set(allTabs().map((t) => t.id));
+  settings.order = ids.filter((id) => valid.has(id));
+  settingsStore.save(settings);
+  traySig = '';
+  sendState();
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+});
 ipcMain.handle('settings:add-app', (_e, data) => addCustomApp(data || {}));
 ipcMain.handle('settings:remove-app', (_e, id) => removeCustomApp(id));
 ipcMain.on('settings:set-enabled', (_e, id, enabled) => {
@@ -509,6 +605,11 @@ app.whenReady().then(() => {
   settings = settingsStore.load();
   // Phòng trường hợp file settings tắt hết
   if (enabledTabs().length === 0) settings.disabled = [];
+  nativeTheme.themeSource = settings.theme;
+  nativeTheme.on('updated', () => {
+    if (settingsView) settingsView.setBackgroundColor(cardColor());
+    for (const v of views.values()) v.setBackgroundColor(cardColor());
+  });
   createWindow();
   createTray();
   app.on('activate', () => {
