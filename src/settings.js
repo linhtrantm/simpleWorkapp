@@ -5,7 +5,7 @@ const path = require('path');
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
 // { disabled: ['teams', ...], iconLevel: 1..6, customApps: [{ id, name, url, color }], lang: 'vi'|'en',
-// theme: 'system'|'light'|'dark', accent: orange|blue|purple|pink|green, order: [id...], notifySound: true|false, keepAwake: true|false }
+// theme: 'system'|'light'|'dark', accent: orange|blue|purple|pink|green, order: [id...], notifySound: true|false, keepAwakeAc: true|false, keepAwakeBattery: true|false, reloadOnWake: true|false }
 // mặc định tất cả app đều bật
 function load() {
   try {
@@ -17,7 +17,10 @@ function load() {
         : { small: 1, medium: 4, large: 5 }[data.iconSize] || 4, // chuyển từ 3 mức cũ
       lang: data.lang === 'en' ? 'en' : 'vi',
       notifySound: data.notifySound !== false,
-      keepAwake: data.keepAwake !== false,
+      // chuyển từ cài đặt cũ keepAwake: 'always' | 'ac' | 'off' | true | false
+      keepAwakeAc: typeof data.keepAwakeAc === 'boolean' ? data.keepAwakeAc : data.keepAwake !== 'off' && data.keepAwake !== false,
+      keepAwakeBattery: typeof data.keepAwakeBattery === 'boolean' ? data.keepAwakeBattery : data.keepAwake === undefined ? true : data.keepAwake === 'always',
+      reloadOnWake: data.reloadOnWake !== false,
       theme: ['system', 'light', 'dark'].includes(data.theme) ? data.theme : 'system',
       accent: ['orange', 'blue', 'purple', 'pink', 'green'].includes(data.accent) ? data.accent : 'orange',
       order: Array.isArray(data.order) ? data.order.filter((x) => typeof x === 'string') : [],
@@ -26,7 +29,7 @@ function load() {
         : []
     };
   } catch {
-    return { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [], notifySound: true, keepAwake: true };
+    return { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [], notifySound: true, keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true };
   }
 }
 

@@ -1,8 +1,12 @@
 const list = document.getElementById('list');
 const ver = document.getElementById('ver');
 const page = document.getElementById('page');
-const keepAwake = document.getElementById('keep-awake');
-keepAwake.addEventListener('change', () => window.simpleWork.setKeepAwake(keepAwake.checked));
+const keepAc = document.getElementById('keep-ac');
+const keepBattery = document.getElementById('keep-battery');
+keepAc.addEventListener('change', () => window.simpleWork.setKeepAwake({ ac: keepAc.checked }));
+keepBattery.addEventListener('change', () => window.simpleWork.setKeepAwake({ battery: keepBattery.checked }));
+const reloadWake = document.getElementById('reload-wake');
+reloadWake.addEventListener('change', () => window.simpleWork.setReloadOnWake(reloadWake.checked));
 const notifSound = document.getElementById('notif-sound');
 notifSound.addEventListener('change', () => window.simpleWork.setNotifySound(notifSound.checked));
 const level = document.getElementById('level');
@@ -100,7 +104,7 @@ list.addEventListener('dragover', (e) => {
 });
 list.addEventListener('drop', (e) => e.preventDefault());
 
-function render({ apps, version, iconLevel, lang: newLang, theme, accent, notifySound, keepAwake: keepAwakeOn }) {
+function render({ apps, version, iconLevel, lang: newLang, theme, accent, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
   lang = newLang || 'vi';
   i18n.apply(lang, document);
   swTheme.apply(accent, document);
@@ -108,7 +112,9 @@ function render({ apps, version, iconLevel, lang: newLang, theme, accent, notify
   if (document.activeElement !== level) level.value = iconLevel || 4;
   paintLevel();
   notifSound.checked = notifySound !== false;
-  keepAwake.checked = keepAwakeOn !== false;
+  keepAc.checked = keepAwakeAc !== false;
+  keepBattery.checked = keepAwakeBattery !== false;
+  reloadWake.checked = reloadOnWake !== false;
   for (const b of themes.children) b.classList.toggle('on', b.dataset.theme === theme);
   for (const b of accents.children) b.classList.toggle('on', b.dataset.accent === accent);
   ver.textContent = 'v' + version;

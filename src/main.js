@@ -1,6 +1,7 @@
-const { app, BrowserWindow, WebContentsView, Notification, Tray, Menu, nativeImage, nativeTheme, powerMonitor, powerSaveBlocker, session, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, WebContentsView, Notification, Tray, Menu, nativeImage, nativeTheme, powerMonitor, powerSaveBlocker, dialog, session, shell, ipcMain } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { execFile } = require('child_process');
 // Không để Chromium làm chậm/đóng băng các tab chạy nền khi cửa sổ bị che hoặc ẩn,
 // nếu không tin nhắn và thông báo sẽ đến chậm hoặc chập chờn.
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
@@ -39,7 +40,7 @@ let handoffView = null;
 let aboutWin = null;
 let settingsOpen = false;
 let splashView = null;
-let settings = { keepAwake: true, notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
+let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
@@ -138,7 +139,9 @@ function settingsState() {
     theme: settings.theme,
     accent: settings.accent,
     notifySound: settings.notifySound,
-    keepAwake: settings.keepAwake,
+    keepAwakeAc: settings.keepAwakeAc,
+    keepAwakeBattery: settings.keepAwakeBattery,
+    reloadOnWake: settings.reloadOnWake,
     apps: allTabs().map((t) => ({
       id: t.id, name: t.name, icon: t.icon, letter: t.letter, color: t.color, custom: !!t.custom, enabled: isEnabled(t.id)
     }))
@@ -462,6 +465,55 @@ function applyEnabledChange(id, enabled) {
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 }
 
+// ---- Chẩn đoán hiệu năng: đo vài chục giây rồi cho biết tab nào ngốn CPU/GPU (có thể chuyển sang app khác trong lúc đo) ----
+let perfRunning = false;
+async function runPerfDiagnostics(seconds = 10) {
+  if (perfRunning) return;
+  perfRunning = true;
+  new Notification({ title: 'simpleWork', body: T('perfMeasuring', { s: seconds }), silent: true }).show();
+  app.getAppMetrics(); // lần đầu chỉ để đặt mốc, CPU tính từ lần gọi trước
+  const stats = new Map(); // tên -> { sum, max, wake, mb, n }
+  const states = [];
+  const sample = () => {
+    const metrics = app.getAppMetrics();
+    const byPid = new Map(metrics.map((m) => [m.pid, m]));
+    const record = (name, pid) => {
+      const m = byPid.get(pid);
+      if (!m) return;
+      const r = stats.get(name) || { sum: 0, max: 0, wake: 0, mb: 0, n: 0 };
+      r.sum += m.cpu.percentCPUUsage;
+      r.max = Math.max(r.max, m.cpu.percentCPUUsage);
+      r.wake += m.cpu.idleWakeupsPerSecond;
+      r.mb = Math.max(r.mb, (m.memory.workingSetSize || 0) / 1024);
+      r.n += 1;
+      stats.set(name, r);
+    };
+    for (const [id, v] of views) {
+      if (v.webContents.isDestroyed()) continue;
+      const t = tabById(id);
+      record(`${t ? t.name : id}${t && t.keepAlive ? ' (keepAlive)' : ''}`, v.webContents.getOSProcessId());
+    }
+    if (win && !win.isDestroyed()) record('Thanh bên (giao diện simpleWork)', win.webContents.getOSProcessId());
+    for (const m of metrics) if (m.type === 'GPU') record('GPU (vẽ khung hình)', m.pid);
+    record('Tiến trình chính', process.pid);
+    states.push(`${win && win.isFocused() ? 'focus' : 'nền'}/${win && win.isVisible() ? 'hiện' : 'ẩn'}`);
+  };
+  const steps = Math.max(1, Math.round(seconds / 5));
+  for (let i = 0; i < steps; i++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    sample();
+  }
+  const rows = [...stats].map(([name, r]) => ({ name, avg: r.sum / r.n, max: r.max, wake: r.wake / r.n, mb: r.mb })).sort((a, b) => b.avg - a.avg);
+  const total = rows.reduce((s, r) => s + r.avg, 0);
+  const lines = rows.map((r) => `${r.avg.toFixed(1).padStart(5)}% TB  (đỉnh ${r.max.toFixed(1).padStart(5)}%)  ${String(Math.round(r.wake)).padStart(5)} wake/s  ${String(Math.round(r.mb)).padStart(4)} MB   ${r.name}`);
+  const text =
+    `Tổng CPU trung bình: ${total.toFixed(1)}%  (đo ${seconds} giây, ${new Date().toISOString()})\n` +
+    `Đang xem: ${activeId}. Trạng thái cửa sổ qua từng nhịp 5s: ${states.join(' ')}\n\n${lines.join('\n')}`;
+  logNotify('PERF\n' + text);
+  perfRunning = false;
+  dialog.showMessageBox({ type: 'info', title: 'simpleWork', message: T('perfTitle'), detail: text, buttons: ['OK'] });
+}
+
 // ---- Cửa sổ About + menu của app ----
 function showAbout() {
   if (aboutWin && !aboutWin.isDestroyed()) {
@@ -532,6 +584,8 @@ function buildAppMenu() {
               setSettingsOpen(true);
             }
           },
+          { label: T('menuPerf'), click: () => runPerfDiagnostics(10) },
+          { label: T('menuPerfLong'), click: () => runPerfDiagnostics(60) },
           { type: 'separator' },
           { role: 'services' },
           { type: 'separator' },
@@ -716,15 +770,82 @@ function createWindow() {
 
 // ---- Giữ máy thức (chỉ khi cắm sạc và người dùng bật) ----
 // 'prevent-app-suspension' giữ cả hệ thống thức (macOS: NoIdleSleepAssertion), nên phải nhả khi chạy pin hoặc khi tắt.
+// powerMonitor.isOnBatteryPower() của Electron có thể báo sai (đã gặp: máy chạy pin mà trả về false),
+// nên hỏi thẳng macOS bằng `pmset -g batt`. Máy không có pin (Mac để bàn) thì pmset không báo "Battery Power".
 let keepAwakeId = null;
-function syncKeepAwake() {
-  const want = settings.keepAwake && !powerMonitor.isOnBatteryPower();
-  const active = keepAwakeId !== null && powerSaveBlocker.isStarted(keepAwakeId);
-  if (want && !active) keepAwakeId = powerSaveBlocker.start('prevent-app-suspension');
-  else if (!want && keepAwakeId !== null) {
-    powerSaveBlocker.stop(keepAwakeId);
-    keepAwakeId = null;
+let keepAwakeTimer = null;
+let keepAwakeSyncing = false;
+let keepAwakeAgain = false;
+
+// Sau khi máy ngủ (gập màn hình...), kết nối của các trang chat đã đứt và có thể kẹt không tải tin mới.
+// Tải lại các app không đang xem để tin nhắn về lại ngay (bỏ qua app đang xem, app đang bị khoá ở trình duyệt).
+let sleepStartedAt = 0;
+function refreshAfterWake() {
+  const slept = sleepStartedAt ? Date.now() - sleepStartedAt : 0;
+  sleepStartedAt = 0;
+  if (!settings.reloadOnWake || slept < 60 * 1000) return;
+  setTimeout(() => {
+    const reloaded = [];
+    for (const [id, v] of views) {
+      if (v.webContents.isDestroyed() || handoff.has(id) || isViewing(id)) continue;
+      v.webContents.reload();
+      reloaded.push(id);
+    }
+    logNotify(`tải lại sau khi máy ngủ ${Math.round(slept / 60000)} phút: [${reloaded}]`);
+  }, 6000); // chờ mạng nối lại
+}
+
+function pmsetOnBattery() {
+  return new Promise((resolve) => {
+    execFile('/usr/bin/pmset', ['-g', 'batt'], { timeout: 4000 }, (err, out) => resolve(!err && /Battery Power/.test(String(out))));
+  });
+}
+
+async function syncKeepAwake(reason = 'sync') {
+  if (keepAwakeSyncing) {
+    keepAwakeAgain = true; // đang chạy dở thì chạy lại sau, tránh bật hai lần
+    return;
   }
+  keepAwakeSyncing = true;
+  try {
+    const electronSays = powerMonitor.isOnBatteryPower();
+    const pmsetSays = await pmsetOnBattery();
+    const onBattery = electronSays || pmsetSays;
+    // Cắm sạc và chạy pin có công tắc riêng. Gập màn hình thì macOS vẫn ngủ (app không chặn được và không nên chặn).
+    const want = onBattery ? settings.keepAwakeBattery : settings.keepAwakeAc;
+    const active = keepAwakeId !== null && powerSaveBlocker.isStarted(keepAwakeId);
+    if (want && !active) {
+      keepAwakeId = powerSaveBlocker.start('prevent-app-suspension');
+      logNotify(`keepAwake BẬT (${reason}) pin: electron=${electronSays} pmset=${pmsetSays}`);
+    } else if (!want && keepAwakeId !== null) {
+      powerSaveBlocker.stop(keepAwakeId);
+      keepAwakeId = null;
+      // Nếu pmset vẫn thấy simpleWork giữ máy thì thủ phạm là trang web (âm thanh, cuộc gọi...), liệt kê các tab đang phát tiếng
+      const audible = [...views].filter(([, v]) => !v.webContents.isDestroyed() && v.webContents.isCurrentlyAudible()).map(([id]) => id);
+      logNotify(`keepAwake TẮT (${reason}) pin: electron=${electronSays} pmset=${pmsetSays} cắm-sạc=${settings.keepAwakeAc} chạy-pin=${settings.keepAwakeBattery} tab-đang-phát-tiếng=[${audible}]`);
+    }
+  } finally {
+    keepAwakeSyncing = false;
+    if (keepAwakeAgain) {
+      keepAwakeAgain = false;
+      syncKeepAwake('lặp lại');
+    }
+  }
+}
+
+// Kiểm tra định kỳ vì sự kiện rút/cắm sạc của Electron không đáng tin; mỗi lần chỉ chạy `pmset` vài chục mili giây
+function startKeepAwakeWatch() {
+  syncKeepAwake('khởi động');
+  keepAwakeTimer = setInterval(() => syncKeepAwake('kiểm tra 30s'), 30000);
+  powerMonitor.on('on-ac', () => syncKeepAwake('cắm sạc'));
+  powerMonitor.on('on-battery', () => syncKeepAwake('rút sạc'));
+  powerMonitor.on('suspend', () => {
+    sleepStartedAt = Date.now();
+  });
+  powerMonitor.on('resume', () => {
+    syncKeepAwake('máy thức dậy');
+    refreshAfterWake();
+  });
 }
 
 // Nhật ký thông báo (userData/notify.log) để biết thông báo bị mất ở khâu nào
@@ -834,9 +955,15 @@ ipcMain.on('settings:set-notify-sound', (_e, on) => {
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
 ipcMain.on('settings:set-keep-awake', (_e, on) => {
-  settings.keepAwake = !!on;
+  if (typeof on.ac === 'boolean') settings.keepAwakeAc = on.ac;
+  if (typeof on.battery === 'boolean') settings.keepAwakeBattery = on.battery;
   settingsStore.save(settings);
-  syncKeepAwake();
+  syncKeepAwake('đổi công tắc');
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+});
+ipcMain.on('settings:set-reload-on-wake', (_e, on) => {
+  settings.reloadOnWake = !!on;
+  settingsStore.save(settings);
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
 ipcMain.on('settings:set-theme', (_e, theme) => {
@@ -874,9 +1001,7 @@ app.whenReady().then(() => {
   // Phòng trường hợp file settings tắt hết
   if (enabledTabs().length === 0) settings.disabled = [];
   // Giữ máy thức để nhận thông báo, nhưng CHỈ khi cắm sạc (chạy pin thì để máy ngủ bình thường)
-  syncKeepAwake();
-  powerMonitor.on('on-ac', syncKeepAwake);
-  powerMonitor.on('on-battery', syncKeepAwake);
+  startKeepAwakeWatch();
   nativeTheme.themeSource = settings.theme;
   nativeTheme.on('updated', () => {
     if (settingsView) settingsView.setBackgroundColor(cardColor());
@@ -894,6 +1019,7 @@ app.whenReady().then(() => {
 app.on('will-quit', () => {
   if (keepAwakeId !== null) powerSaveBlocker.stop(keepAwakeId);
   keepAwakeId = null;
+  clearInterval(keepAwakeTimer);
 });
 
 app.on('before-quit', () => {
