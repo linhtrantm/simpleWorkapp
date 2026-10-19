@@ -1,4 +1,4 @@
-const { app, BrowserWindow, WebContentsView, Notification, Tray, Menu, nativeImage, nativeTheme, powerSaveBlocker, session, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, WebContentsView, Notification, Tray, Menu, nativeImage, nativeTheme, powerMonitor, powerSaveBlocker, session, shell, ipcMain } = require('electron');
 const fs = require('fs');
 const path = require('path');
 // Không để Chromium làm chậm/đóng băng các tab chạy nền khi cửa sổ bị che hoặc ẩn,
@@ -21,8 +21,8 @@ const ICON_LEVELS = [
   { width: 90, icon: 50, glyph: 28, label: true, labelSize: 10, top: 0 },
   { width: 102, icon: 56, glyph: 31, label: true, labelSize: 11, top: 0 }
 ];
-const CARD_RADIUS = 12; // góc bo của "tấm thẻ" chứa nội dung web
-const CARD_MARGIN = 8; // khoảng cách tấm thẻ với mép phải/dưới cửa sổ
+const CARD_RADIUS = 10; // góc bo của "tấm thẻ" chứa nội dung web (nhỏ hơn góc cửa sổ macOS nên không lòi nền ở góc)
+const CARD_MARGIN = 0; // tấm thẻ dán sát mép phải/dưới cửa sổ
 const LOAD_TIMEOUT_MS = 10000; // quá thời gian này vẫn hiện trang dù chưa báo tải xong
 const SPLASH_MIN_MS = 1600;
 const SPLASH_MAX_MS = 10000;
@@ -36,9 +36,10 @@ let activeId = null;
 let quitting = false;
 let settingsView = null;
 let handoffView = null;
+let aboutWin = null;
 let settingsOpen = false;
 let splashView = null;
-let settings = { notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
+let settings = { keepAwake: true, notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
@@ -137,6 +138,7 @@ function settingsState() {
     theme: settings.theme,
     accent: settings.accent,
     notifySound: settings.notifySound,
+    keepAwake: settings.keepAwake,
     apps: allTabs().map((t) => ({
       id: t.id, name: t.name, icon: t.icon, letter: t.letter, color: t.color, custom: !!t.custom, enabled: isEnabled(t.id)
     }))
@@ -460,6 +462,92 @@ function applyEnabledChange(id, enabled) {
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 }
 
+// ---- Cửa sổ About + menu của app ----
+function showAbout() {
+  if (aboutWin && !aboutWin.isDestroyed()) {
+    aboutWin.show();
+    aboutWin.focus();
+    return;
+  }
+  aboutWin = new BrowserWindow({
+    width: 340,
+    height: 372,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    title: T('menuAbout'),
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 14, y: 14 },
+    backgroundColor: bgColor(),
+    show: false,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true }
+  });
+  aboutWin.loadFile(path.join(__dirname, 'about.html'));
+  aboutWin.once('ready-to-show', () => aboutWin.show());
+  aboutWin.webContents.on('did-finish-load', sendAboutData);
+  aboutWin.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  aboutWin.on('closed', () => {
+    aboutWin = null;
+  });
+}
+
+// Số build do scripts/build.js ghi vào lúc build (không có khi chạy npm start)
+function buildNumber() {
+  try {
+    return require('./build-info.json').build || null;
+  } catch {
+    return null;
+  }
+}
+
+function sendAboutData() {
+  if (!aboutWin || aboutWin.isDestroyed()) return;
+  aboutWin.setTitle(T('menuAbout'));
+  const build = buildNumber();
+  aboutWin.webContents.send('about:data', {
+    version: app.getVersion() + (build ? ` (${build})` : ''),
+    lang: settings.lang,
+    accent: settings.accent,
+    year: new Date().getFullYear()
+  });
+}
+
+function buildAppMenu() {
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'simpleWork',
+        submenu: [
+          { label: T('menuAbout'), click: showAbout },
+          { type: 'separator' },
+          {
+            label: T('traySettings'),
+            accelerator: 'Cmd+,',
+            click: () => {
+              showWindow();
+              setSettingsOpen(true);
+            }
+          },
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' }
+        ]
+      },
+      { role: 'editMenu' },
+      { role: 'windowMenu' }
+    ])
+  );
+}
+
 // ---- Menu bar (khay hệ thống) ----
 function showWindow() {
   if (!win) createWindow();
@@ -626,6 +714,19 @@ function createWindow() {
   });
 }
 
+// ---- Giữ máy thức (chỉ khi cắm sạc và người dùng bật) ----
+// 'prevent-app-suspension' giữ cả hệ thống thức (macOS: NoIdleSleepAssertion), nên phải nhả khi chạy pin hoặc khi tắt.
+let keepAwakeId = null;
+function syncKeepAwake() {
+  const want = settings.keepAwake && !powerMonitor.isOnBatteryPower();
+  const active = keepAwakeId !== null && powerSaveBlocker.isStarted(keepAwakeId);
+  if (want && !active) keepAwakeId = powerSaveBlocker.start('prevent-app-suspension');
+  else if (!want && keepAwakeId !== null) {
+    powerSaveBlocker.stop(keepAwakeId);
+    keepAwakeId = null;
+  }
+}
+
 // Nhật ký thông báo (userData/notify.log) để biết thông báo bị mất ở khâu nào
 function logNotify(line) {
   try {
@@ -722,12 +823,20 @@ ipcMain.on('settings:set-lang', (_e, lang) => {
   settings.lang = lang;
   settingsStore.save(settings);
   traySig = '';
+  buildAppMenu();
+  sendAboutData();
   sendState(); // cập nhật cả tray (refreshTray) lẫn thanh bên
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
 ipcMain.on('settings:set-notify-sound', (_e, on) => {
   settings.notifySound = !!on;
   settingsStore.save(settings);
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+});
+ipcMain.on('settings:set-keep-awake', (_e, on) => {
+  settings.keepAwake = !!on;
+  settingsStore.save(settings);
+  syncKeepAwake();
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
 ipcMain.on('settings:set-theme', (_e, theme) => {
@@ -764,8 +873,10 @@ app.whenReady().then(() => {
   settings = settingsStore.load();
   // Phòng trường hợp file settings tắt hết
   if (enabledTabs().length === 0) settings.disabled = [];
-  // Chặn macOS App Nap làm app ngủ khi chạy nền (gây trễ tin nhắn và thông báo)
-  powerSaveBlocker.start('prevent-app-suspension');
+  // Giữ máy thức để nhận thông báo, nhưng CHỈ khi cắm sạc (chạy pin thì để máy ngủ bình thường)
+  syncKeepAwake();
+  powerMonitor.on('on-ac', syncKeepAwake);
+  powerMonitor.on('on-battery', syncKeepAwake);
   nativeTheme.themeSource = settings.theme;
   nativeTheme.on('updated', () => {
     if (settingsView) settingsView.setBackgroundColor(cardColor());
@@ -773,10 +884,16 @@ app.whenReady().then(() => {
   });
   createWindow();
   createTray();
+  buildAppMenu();
   app.on('activate', () => {
     if (!win) createWindow();
     else win.show();
   });
+});
+
+app.on('will-quit', () => {
+  if (keepAwakeId !== null) powerSaveBlocker.stop(keepAwakeId);
+  keepAwakeId = null;
 });
 
 app.on('before-quit', () => {

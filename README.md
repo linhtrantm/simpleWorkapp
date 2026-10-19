@@ -2,7 +2,7 @@
 
 App desktop macOS (Electron) gom Zalo, WhatsApp, Teams, Messenger, Claude và các web app tuỳ ý vào một cửa sổ. Mỗi app có phiên đăng nhập riêng, giữ nguyên qua các lần mở và các lần cập nhật.
 
-Phiên bản hiện tại: **1.1.0** (macOS, Apple Silicon).
+Phiên bản hiện tại: **1.2.1** (macOS, Apple Silicon).
 
 ## Tính năng
 
@@ -30,9 +30,18 @@ Nếu chạy trong terminal của VSCode mà app crash ngay, thử `env -u ELECT
 npm run dist
 ```
 
-Kết quả: `dist/simpleWork-1.1.0-arm64.dmg`. Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
+Kết quả: `dist/simpleWork-1.2.1-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
 
 App được ký **ad-hoc**, chưa có Apple Developer ID nên chưa notarize. Ký ad-hoc là điều kiện để macOS đưa app vào mục Thông báo. Lần đầu mở nếu bị Gatekeeper chặn: chuột phải vào app > Open, hoặc `xattr -cr /Applications/simpleWork.app`.
+
+## Đánh số phiên bản
+
+Dạng `MAJOR.MINOR.PATCH` (sửa tay trong `package.json`), cộng số build tự tăng:
+
+- **MAJOR** (2.0.0): thay đổi làm hỏng cách dùng cũ (dữ liệu hay cài đặt cũ không dùng được).
+- **MINOR** (1.3.0): thêm tính năng mà cái cũ vẫn chạy. Khi tăng, PATCH về 0.
+- **PATCH** (1.2.1): chỉ sửa lỗi, không thêm tính năng.
+- **Số build**: tăng mỗi lần build để phân biệt các bản build thử, không đổi số phiên bản.
 
 ## Thêm app có sẵn trong code
 
@@ -78,6 +87,7 @@ build/icon.png       icon app
 
 ## Lưu ý
 
+- **Pin:** simpleWork chỉ giữ máy thức khi **đang cắm sạc** (để nhận tin đều); chạy bằng pin thì máy ngủ bình thường. Tắt hẳn bằng công tắc "Giữ máy thức khi cắm sạc" trong Cài đặt.
 - **Thông báo:** cần bật Cho phép thông báo cho simpleWork trong Cài đặt hệ thống > Thông báo. Chế độ Tập trung / Không làm phiền của macOS sẽ chặn thông báo. Electron không nhận được web push khi app đã thoát hẳn.
 - **Passkey / Touch ID:** không dùng được trong app, nên chọn đăng nhập bằng mật khẩu hoặc mã.
 - **Extension trình duyệt** (ví dụ Claude in Chrome) không chạy trong app. Dùng nút Mở trong trình duyệt để mở trang ra trình duyệt ngoài.
