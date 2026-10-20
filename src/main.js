@@ -22,13 +22,13 @@ const ICON_LEVELS = [
   { width: 90, icon: 50, glyph: 28, label: true, labelSize: 10, top: 0 },
   { width: 102, icon: 56, glyph: 31, label: true, labelSize: 11, top: 0 }
 ];
-const CARD_RADIUS = 10; // góc bo của "tấm thẻ" chứa nội dung web (nhỏ hơn góc cửa sổ macOS nên không lòi nền ở góc)
+const CARD_RADIUS = 0; // flat: tấm thẻ web vuông góc, không bo
 const CARD_MARGIN = 0; // tấm thẻ dán sát mép phải/dưới cửa sổ
 const LOAD_TIMEOUT_MS = 10000; // quá thời gian này vẫn hiện trang dù chưa báo tải xong
 const SPLASH_MIN_MS = 1600;
 const SPLASH_MAX_MS = 10000;
-const bgColor = () => (nativeTheme.shouldUseDarkColors ? '#050810' : '#eef1f7');
-const cardColor = () => (nativeTheme.shouldUseDarkColors ? '#0b1020' : '#ffffff');
+const bgColor = () => (nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#f2f2f7');
+const cardColor = () => (nativeTheme.shouldUseDarkColors ? '#2c2c2e' : '#ffffff');
 const USER_AGENT =
   `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`;
 
@@ -117,7 +117,7 @@ function sendState() {
   if (!win) return;
   win.webContents.send('tabs:state', {
     tabs: enabledTabs().map((t) => ({
-      id: t.id, name: t.name, icon: t.icon, letter: t.letter, color: t.color, unread: unread.get(t.id) || 0
+      id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, unread: unread.get(t.id) || 0
     })),
     activeId,
     settingsOpen,
@@ -143,7 +143,7 @@ function settingsState() {
     keepAwakeBattery: settings.keepAwakeBattery,
     reloadOnWake: settings.reloadOnWake,
     apps: allTabs().map((t) => ({
-      id: t.id, name: t.name, icon: t.icon, letter: t.letter, color: t.color, custom: !!t.custom, enabled: isEnabled(t.id)
+      id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, custom: !!t.custom, enabled: isEnabled(t.id)
     }))
   };
 }
@@ -352,7 +352,7 @@ function refreshHandoffOverlay() {
   const tab = tabById(activeId);
   const send = () =>
     handoffView.webContents.send('handoff:show', {
-      name: tab.name, icon: tab.icon, letter: tab.letter, color: tab.color, lang: settings.lang, accent: settings.accent
+      name: tab.name, icon: tab.icon, art: tab.art, tile: tab.tile, gradient: tab.gradient, letter: tab.letter, color: tab.color, lang: settings.lang, accent: settings.accent
     });
   win.contentView.addChildView(handoffView); // đưa lên trên các app
   if (settingsView && settingsOpen) win.contentView.addChildView(settingsView);
@@ -726,9 +726,7 @@ function createWindow() {
     minWidth: 860,
     minHeight: 520,
     title: 'simpleWork',
-    backgroundColor: '#00000000',
-    vibrancy: 'sidebar', // kính mờ gốc của macOS cho thanh bên
-    visualEffectState: 'active',
+    backgroundColor: bgColor(), // flat: nền đặc, không kính mờ
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 13, y: 10 },
     webPreferences: {
@@ -1004,6 +1002,7 @@ app.whenReady().then(() => {
   startKeepAwakeWatch();
   nativeTheme.themeSource = settings.theme;
   nativeTheme.on('updated', () => {
+    if (win && !win.isDestroyed()) win.setBackgroundColor(bgColor());
     if (settingsView) settingsView.setBackgroundColor(cardColor());
     for (const v of views.values()) v.setBackgroundColor(cardColor());
   });

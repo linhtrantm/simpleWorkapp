@@ -35,7 +35,7 @@ window.simpleWork.onShown(() => {
 });
 
 const errText = (code) => i18n.t(lang, { name: 'errName', url: 'errUrl', last: 'errLast' }[code] || 'errGeneric');
-const gradientFor = (c) => `linear-gradient(150deg, color-mix(in srgb, ${c} 70%, #fff), ${c})`;
+const gradientFor = (c) => c; // phẳng: một màu
 
 function paintLevel() {
   lv.textContent = level.value;
@@ -55,11 +55,11 @@ themes.addEventListener('click', (e) => {
   if (th) window.simpleWork.setTheme(th);
 });
 
-Object.entries(swTheme.ACCENTS).forEach(([key, [a, b]]) => {
+Object.entries(swTheme.ACCENTS).forEach(([key, [a]]) => {
   const btn = document.createElement('button');
   btn.dataset.accent = key;
   btn.title = key;
-  btn.style.background = `linear-gradient(135deg, ${a}, ${b})`;
+  btn.style.background = a;
   btn.addEventListener('click', () => window.simpleWork.setAccent(key));
   accents.appendChild(btn);
 });
@@ -148,18 +148,7 @@ function render({ apps, version, iconLevel, lang: newLang, theme, accent, notify
 
       const ico = document.createElement('div');
       ico.className = 'ico';
-      ico.style.background = gradientFor(a.color);
-      if (a.icon) {
-        const img = document.createElement('img');
-        img.src = a.icon;
-        img.alt = '';
-        ico.appendChild(img);
-      } else {
-        const letter = document.createElement('span');
-        letter.className = 'letter';
-        letter.textContent = a.letter || '?';
-        ico.appendChild(letter);
-      }
+      ico.appendChild(swIcon.node(a));
       row.appendChild(ico);
 
       const name = document.createElement('div');

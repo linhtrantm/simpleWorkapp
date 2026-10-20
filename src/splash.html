@@ -6,36 +6,19 @@
   <title>simpleWork</title>
   <link rel="stylesheet" href="assets/theme.css">
   <style>
-    body { display: flex; align-items: center; justify-content: center; -webkit-app-region: drag; transition: opacity .45s ease, transform .45s ease; background: var(--bg); overflow: hidden; }
-    body.hide { opacity: 0; transform: scale(1.03); }
-
-    /* Cực quang: các đốm màu mờ trôi chậm */
-    .aurora { position: absolute; inset: -20%; filter: blur(70px); opacity: .85; }
-    .aurora i { position: absolute; border-radius: 50%; mix-blend-mode: screen; }
-    .aurora i:nth-child(1) { width: 46vmax; height: 46vmax; left: 8%; top: 10%; background: radial-gradient(circle, rgba(245,138,31,.55), transparent 65%); animation: drift1 14s ease-in-out infinite alternate; }
-    .aurora i:nth-child(2) { width: 42vmax; height: 42vmax; right: 6%; top: 30%; background: radial-gradient(circle, rgba(139,92,246,.45), transparent 65%); animation: drift2 17s ease-in-out infinite alternate; }
-    .aurora i:nth-child(3) { width: 38vmax; height: 38vmax; left: 30%; bottom: 0; background: radial-gradient(circle, rgba(59,130,246,.42), transparent 65%); animation: drift3 19s ease-in-out infinite alternate; }
-    @media (prefers-color-scheme: light) { .aurora { opacity: .55; } .aurora i { mix-blend-mode: multiply; } }
-    @keyframes drift1 { to { transform: translate(18vmax, 8vmax) scale(1.2); } }
-    @keyframes drift2 { to { transform: translate(-16vmax, -6vmax) scale(.9); } }
-    @keyframes drift3 { to { transform: translate(10vmax, -10vmax) scale(1.15); } }
-
-    .wrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 18px; }
-    .wordmark { font-size: 52px; letter-spacing: -0.03em; }
-    .wordmark span { display: inline-block; animation: blurin .9s cubic-bezier(.2, .8, .2, 1) both; }
-    .wordmark .soft { animation-delay: .22s; text-shadow: 0 0 40px color-mix(in srgb, var(--brand) 55%, transparent); }
-    @keyframes blurin { from { opacity: 0; filter: blur(16px); transform: translateY(14px) scale(.96); } to { opacity: 1; filter: blur(0); transform: none; } }
-    .tag { font-family: var(--mono); font-size: 13px; color: var(--brand); letter-spacing: .02em; opacity: 0; animation: fade .8s ease .7s forwards; }
-    .tag::after { content: '▍'; margin-left: 2px; animation: caret 1s steps(1) infinite; }
-    @keyframes caret { 50% { opacity: 0; } }
-    @keyframes fade { to { opacity: 1; } }
-    .track { position: relative; width: 190px; height: 3px; border-radius: 3px; background: var(--border); overflow: hidden; margin-top: 10px; opacity: 0; animation: fade .6s ease 1s forwards; }
-    .track i { position: absolute; top: 0; bottom: 0; width: 45%; border-radius: 3px; background: linear-gradient(90deg, transparent, var(--brand), #ffd08a, transparent); animation: slide 1.4s ease-in-out infinite; }
-    @keyframes slide { 0% { left: -50%; } 100% { left: 105%; } }
+    body { display: flex; align-items: center; justify-content: center; -webkit-app-region: drag; transition: opacity .35s ease; background: var(--bg); }
+    body.hide { opacity: 0; }
+    .wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; animation: fade .5s ease both; }
+    .wordmark { font-size: 46px; font-weight: 300; letter-spacing: -0.02em; }
+    .wordmark .soft { font-weight: 600; }
+    .tag { font-family: var(--mono); font-size: 13px; color: var(--brand); letter-spacing: .02em; }
+    .track { position: relative; width: 160px; height: 2px; background: var(--border2); overflow: hidden; margin-top: 12px; }
+    .track i { position: absolute; top: 0; bottom: 0; width: 40%; background: var(--brand); animation: slide 1.3s ease-in-out infinite; }
+    @keyframes slide { 0% { left: -45%; } 100% { left: 105%; } }
+    @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
 <body>
-  <div class="aurora"><i></i><i></i><i></i></div>
   <div class="wrap">
     <div class="wordmark"><span>simple</span><span class="soft">Work</span></div>
     <div class="tag">// Unified Business Management</div>

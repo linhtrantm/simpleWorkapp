@@ -9,9 +9,9 @@
   };
 
   function apply(accent, doc) {
-    const [a, b] = ACCENTS[accent] || ACCENTS.orange;
+    const [a] = ACCENTS[accent] || ACCENTS.orange;
     doc.documentElement.style.setProperty('--accent', a);
-    doc.documentElement.style.setProperty('--accent2', b);
+    doc.documentElement.style.setProperty('--accent2', a); // phẳng: không dùng dải màu
   }
 
   const api = { ACCENTS, apply };

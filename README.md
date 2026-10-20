@@ -2,11 +2,11 @@
 
 App desktop macOS (Electron) gom Zalo, WhatsApp, Teams, Messenger, Claude và các web app tuỳ ý vào một cửa sổ. Mỗi app có phiên đăng nhập riêng, giữ nguyên qua các lần mở và các lần cập nhật.
 
-Phiên bản hiện tại: **1.3.0** (macOS, Apple Silicon).
+Phiên bản hiện tại: **1.3.1** (macOS, Apple Silicon).
 
 ## Tính năng
 
-- **Thanh bên kiểu kính mờ** (vibrancy macOS), nội dung web nằm trong "tấm thẻ" bo góc. Ô chọn trượt mượt khi đổi app, nền đổi tông theo app đang xem.
+- **Giao diện phẳng (flat) kiểu iOS 7**: nền đặc, màu phẳng, không kính mờ, không bóng đổ. Thanh bên có icon app dạng squircle một màu (icon Zalo dùng icon chính thức), ô chọn phẳng, tự theo chế độ sáng/tối của macOS.
 - **Mở sẵn tất cả app** khi khởi động để không lỡ tin nhắn. Đóng cửa sổ chỉ ẩn đi, app vẫn chạy nền (thoát hẳn bằng Cmd+Q).
 - **Thông báo gốc macOS** cho tin mới: tiêu đề có tên app, bấm vào thì mở app và chuyển đúng tab. Có badge số tin chưa đọc trên icon app, icon Dock và menu bar.
 - **Menu bar:** icon hiện tổng tin chưa đọc, menu chuyển nhanh giữa các app.
@@ -30,7 +30,7 @@ Nếu chạy trong terminal của VSCode mà app crash ngay, thử `env -u ELECT
 npm run dist
 ```
 
-Kết quả: `dist/simpleWork-1.3.0-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
+Kết quả: `dist/simpleWork-1.3.1-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
 
 App được ký **ad-hoc**, chưa có Apple Developer ID nên chưa notarize. Ký ad-hoc là điều kiện để macOS đưa app vào mục Thông báo. Lần đầu mở nếu bị Gatekeeper chặn: chuột phải vào app > Open, hoặc `xattr -cr /Applications/simpleWork.app`.
 

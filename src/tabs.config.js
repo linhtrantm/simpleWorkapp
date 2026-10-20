@@ -13,6 +13,8 @@ module.exports = [
     url: 'https://chat.zalo.me',
     partition: 'persist:ZaloWeb',
     icon: 'icons/zalo.svg',
+    art: 'icons/zalo-official.png', // icon chính thức lấy từ chat.zalo.me (bong bóng chat xanh + chữ Zalo), đặt trên tile trắng
+    tile: 'white',
     color: '#0068ff',
     internalHosts: ['zalo.me', 'zaloapp.com', 'zdn.vn']
   },
@@ -49,7 +51,7 @@ module.exports = [
     url: 'https://www.messenger.com/',
     partition: 'persist:MessengerWeb',
     icon: 'icons/messenger.svg',
-    color: '#a033ff',
+    color: '#0084ff',
     internalHosts: ['messenger.com', 'facebook.com', 'fb.com', 'facebook.net', 'fbcdn.net', 'fbsbx.com', 'meta.com']
   },
   {

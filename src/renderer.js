@@ -14,19 +14,6 @@ function gradientFor(color) {
   return `linear-gradient(150deg, color-mix(in srgb, ${color} 70%, #fff), ${color})`;
 }
 
-function iconNode(t, withClass) {
-  if (t.icon) {
-    const img = document.createElement('img');
-    img.src = t.icon;
-    img.alt = t.name;
-    return img;
-  }
-  const letter = document.createElement('span');
-  letter.className = 'letter';
-  letter.textContent = t.letter || '?';
-  return letter;
-}
-
 function createItem(t) {
   const item = document.createElement('div');
   item.className = 'item';
@@ -41,11 +28,7 @@ function createItem(t) {
     window.simpleWork.itemMenu(t.id);
   });
 
-  const icon = document.createElement('div');
-  icon.className = 'icon';
-  icon.style.background = gradientFor(t.color);
-  icon.style.setProperty('--glow', t.color);
-  icon.appendChild(iconNode(t));
+  const icon = swIcon.node(t);
   item.appendChild(icon);
 
   const badge = document.createElement('span');
@@ -85,9 +68,8 @@ function renderStage(state, tab) {
   }
   const big = document.createElement('div');
   big.className = 'big';
-  big.style.background = gradientFor(tab.color);
   big.style.setProperty('--glow', tab.color);
-  big.appendChild(iconNode(tab));
+  big.appendChild(swIcon.node(tab));
 
   const msg = document.createElement('div');
   msg.className = 'msg';

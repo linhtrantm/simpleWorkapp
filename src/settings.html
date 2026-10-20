@@ -10,7 +10,7 @@
     @media (prefers-color-scheme: light) { :root { --surface: rgba(15,23,42,.035); --surface2: rgba(15,23,42,.07); } }
 
     html, body { background: var(--card); }
-    body { overflow-y: auto; padding: 40px 48px 56px; background: radial-gradient(70% 40% at 10% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%), var(--card); }
+    body { overflow-y: auto; padding: 40px 48px 56px; background: var(--card); }
     .page { max-width: 580px; margin: 0 auto; }
     .page.enter > * { animation: rise .55s cubic-bezier(.2, .8, .2, 1) both; }
     .page.enter > *:nth-child(2) { animation-delay: .04s; } .page.enter > *:nth-child(3) { animation-delay: .08s; }
@@ -34,9 +34,7 @@
     .grip { width: 22px; text-align: center; color: var(--muted); font-size: 15px; letter-spacing: -2px; cursor: grab; opacity: .45; transition: opacity .15s; user-select: none; flex: none; }
     .row:hover .grip { opacity: 1; }
     .grip:active { cursor: grabbing; }
-    .ico { width: 40px; height: 40px; border-radius: 28%; display: flex; align-items: center; justify-content: center; flex: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.4), inset 0 -8px 14px rgba(0,0,0,.16), 0 6px 14px -6px rgba(0,0,0,.45); transition: opacity .2s, filter .2s; }
-    .ico img { width: 22px; height: 22px; filter: brightness(0) invert(1); }
-    .ico .letter { color: #fff; font-weight: 700; font-size: 18px; }
+    .ico { --sz: 42px; flex: none; transition: opacity .2s, filter .2s; }
     .row.off .ico { opacity: .35; filter: grayscale(1); }
     .name { flex: 1; font-size: 14px; font-weight: 600; }
     .state { font-size: 11.5px; color: var(--muted); margin-right: 4px; }
@@ -46,7 +44,7 @@
     .switch { position: relative; width: 44px; height: 26px; flex: none; cursor: pointer; }
     .switch input { display: none; }
     .switch span { position: absolute; inset: 0; border-radius: 13px; background: var(--surface2); transition: background .25s; }
-    .switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .3s cubic-bezier(.34, 1.56, .64, 1); box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+    .switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .3s cubic-bezier(.34, 1.56, .64, 1); box-shadow: 0 0 0 1px rgba(0,0,0,.1); }
     .switch input:checked + span { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
     .switch input:checked + span::after { transform: translateX(18px); }
     .switch input:disabled + span { opacity: .45; cursor: not-allowed; }
@@ -55,22 +53,22 @@
     .form { background: var(--surface); border: 1px solid var(--border2); border-radius: 18px; padding: 18px; display: grid; gap: 14px; }
     .form label.f, .form .f { display: grid; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
     .form input[type=text] { user-select: text; -webkit-user-select: text; background: var(--input); border: 1px solid var(--border2); border-radius: 11px; color: var(--text); padding: 10px 12px; font: 13px -apple-system, BlinkMacSystemFont, sans-serif; outline: none; transition: border-color .15s, box-shadow .15s; }
-    .form input[type=text]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+    .form input[type=text]:focus { border-color: var(--accent);  }
     .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
-    .swatches button { width: 28px; height: 28px; border-radius: 9px; border: 2px solid transparent; cursor: pointer; transition: transform .2s cubic-bezier(.34, 1.56, .64, 1); box-shadow: inset 0 1px 0 rgba(255,255,255,.35); }
+    .swatches button { width: 28px; height: 28px; border-radius: 9px; border: 2px solid transparent; cursor: pointer; transition: transform .2s cubic-bezier(.34, 1.56, .64, 1);  }
     .swatches button:hover { transform: scale(1.12); }
     .swatches button.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--card) inset; }
     .actions { display: flex; align-items: center; gap: 12px; }
-    .add { border: 0; border-radius: 11px; padding: 10px 20px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--on-accent); font: 700 12.5px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; box-shadow: 0 8px 20px -10px var(--accent); transition: filter .15s, transform .15s; }
+    .add { border: 0; border-radius: 11px; padding: 10px 20px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--on-accent); font: 700 12.5px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer;  transition: filter .15s, transform .15s; }
     .add:hover { filter: brightness(1.08); transform: translateY(-1px); }
     .err { color: #f87171; font-size: 12px; }
 
     .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border2); border-radius: 13px; padding: 4px; gap: 4px; }
     .seg button { border: 0; background: transparent; color: var(--muted); font: 600 12.5px -apple-system, BlinkMacSystemFont, sans-serif; padding: 8px 18px; border-radius: 10px; cursor: pointer; transition: all .2s; }
     .seg button:hover { color: var(--text); }
-    .seg button.on { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--on-accent); box-shadow: 0 6px 16px -8px var(--accent); }
+    .seg button.on { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--on-accent);  }
     .dock { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; padding: 16px 18px; }
-    .dock .mini, .dock .maxi { flex: none; border-radius: 28%; background: linear-gradient(150deg, var(--accent2), var(--accent)); box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 4px 10px -4px var(--accent); }
+    .dock .mini, .dock .maxi { flex: none; border-radius: 28%; background: linear-gradient(150deg, var(--accent2), var(--accent));  }
     .dock .mini { width: 16px; height: 16px; } .dock .maxi { width: 30px; height: 30px; }
     .dock .sl { position: relative; flex: 1; height: 28px; }
     .dock .ticks { position: absolute; left: 11px; right: 11px; top: 50%; height: 0; display: flex; justify-content: space-between; pointer-events: none; }
@@ -79,9 +77,9 @@
     .dock .lv { flex: none; width: 24px; text-align: right; font: 600 12px var(--mono); color: var(--muted); }
     #level { -webkit-appearance: none; appearance: none; position: relative; z-index: 1; width: 100%; height: 28px; background: transparent; outline: none; cursor: pointer; --pct: 60%; }
     #level::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--accent) var(--pct), var(--surface2) var(--pct)); }
-    #level::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -9px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.4), 0 0 0 1px rgba(0,0,0,.08); transition: transform .15s cubic-bezier(.34, 1.56, .64, 1); }
+    #level::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -9px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.12); transition: transform .15s cubic-bezier(.34, 1.56, .64, 1); }
     #level:active::-webkit-slider-thumb { transform: scale(1.12); }
-    .acc button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform .2s cubic-bezier(.34, 1.56, .64, 1); box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 4px 10px -4px rgba(0,0,0,.4); }
+    .acc button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform .2s cubic-bezier(.34, 1.56, .64, 1);  }
     .acc button:hover { transform: scale(1.12); }
     .acc button.on { border-color: var(--text); box-shadow: 0 0 0 3px var(--card) inset; }
     .acc { display: flex; gap: 10px; }
@@ -177,6 +175,7 @@
     </div>
     <footer><span class="wordmark"><span>simple</span><span class="soft">Work</span></span><span id="ver"></span></footer>
   </div>
+  <script src="icon-art.js"></script>
   <script src="i18n.js"></script>
   <script src="theme.js"></script>
   <script src="settings-page.js"></script>

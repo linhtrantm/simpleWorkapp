@@ -4,35 +4,33 @@
   color-scheme: dark light;
   --brand: #f58a1f;
   --accent: #f58a1f;
-  --accent2: #ffb454;
-  --bg: #050810;
-  --band: #080c18;
-  --card: #0b1020;
-  --text: #f1f5f9;
-  --muted: #8a97b0;
-  --border: rgba(255, 255, 255, 0.08);
-  --border2: rgba(255, 255, 255, 0.06);
-  --glass: rgba(10, 14, 28, 0.5);
-  --hover: rgba(255, 255, 255, 0.06);
-  --input: #060a16;
-  --shadow: rgba(0, 0, 0, 0.5);
+  --accent2: #f58a1f;
+  --bg: #1c1c1e;
+  --band: #1c1c1e;
+  --card: #2c2c2e;
+  --text: #f2f2f7;
+  --muted: #8e8e93;
+  --border: rgba(255, 255, 255, 0.16);
+  --border2: rgba(255, 255, 255, 0.1);
+  --glass: transparent;
+  --hover: rgba(255, 255, 255, 0.08);
+  --input: #1c1c1e;
+  --shadow: transparent;
   --on-accent: #1a1004;
   --mono: ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #eef1f7;
-    --band: #f4f6fb;
+    --bg: #f2f2f7;
+    --band: #f2f2f7;
     --card: #ffffff;
-    --text: #0f172a;
-    --muted: #64748b;
-    --border: rgba(15, 23, 42, 0.1);
-    --border2: rgba(15, 23, 42, 0.07);
-    --glass: rgba(255, 255, 255, 0.45);
-    --hover: rgba(15, 23, 42, 0.06);
-    --input: #f1f5f9;
-    --shadow: rgba(15, 23, 42, 0.18);
+    --text: #1c1c1e;
+    --muted: #8e8e93;
+    --border: rgba(60, 60, 67, 0.2);
+    --border2: rgba(60, 60, 67, 0.12);
+    --hover: rgba(60, 60, 67, 0.08);
+    --input: #f2f2f7;
   }
 }
 
@@ -45,3 +43,10 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 
 .wordmark { font-weight: 700; letter-spacing: -0.02em; display: inline-flex; align-items: center; }
 .wordmark .soft { color: var(--brand); }
+
+/* Icon app kiểu macOS (xem src/icon-art.js). Kích thước đặt bằng biến --sz của phần tử cha. */
+.sw-icon { position: relative; width: var(--sz, 40px); height: var(--sz, 40px); flex: none; display: block; }
+.sw-icon svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sw-icon .glyph { position: absolute; inset: 0; margin: auto; width: 56%; height: 56%; filter: brightness(0) invert(1); pointer-events: none; }
+.sw-icon .letter { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: calc(var(--sz, 40px) * 0.46); pointer-events: none; }
+.sw-icon .art { position: absolute; inset: 0; margin: auto; width: 78%; height: 78%; object-fit: contain; pointer-events: none; }
