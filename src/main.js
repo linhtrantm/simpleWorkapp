@@ -40,7 +40,7 @@ let handoffView = null;
 let aboutWin = null;
 let settingsOpen = false;
 let splashView = null;
-let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
+let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, pageDrag: true, notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
@@ -54,6 +54,7 @@ const handoffCss = new Map(); // id -> key CSS đã chèn
 // Giao diện web của Zalo... khai báo vùng "kéo cửa sổ" cho app desktop của họ (gồm cả ô Search), trong simpleWork
 // nó làm cả cửa sổ bị kéo đi khi bấm vào. Tắt hết vùng kéo do trang web tự khai báo.
 const NO_DRAG_CSS = '*:not(#sw-a):not(#sw-b),*:not(#sw-a):not(#sw-b)::before,*:not(#sw-a):not(#sw-b)::after{-webkit-app-region:no-drag!important}';
+const PAGE_DRAG_JS = fs.readFileSync(path.join(__dirname, 'page-drag.js'), 'utf8');
 const HANDOFF_CSS = 'html{filter:blur(14px) saturate(.75)!important;pointer-events:none!important;user-select:none!important;transition:filter .3s}';
 const notifUnread = new Map(); // id -> số thông báo nhận kể từ lần xem gần nhất (dự phòng cho app title không có số)
 
@@ -142,6 +143,7 @@ function settingsState() {
     keepAwakeAc: settings.keepAwakeAc,
     keepAwakeBattery: settings.keepAwakeBattery,
     reloadOnWake: settings.reloadOnWake,
+    pageDrag: settings.pageDrag,
     apps: allTabs().map((t) => ({
       id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, custom: !!t.custom, enabled: isEnabled(t.id)
     }))
@@ -252,7 +254,11 @@ function createView(tab) {
     }
   });
 
-  wc.on('dom-ready', () => wc.insertCSS(NO_DRAG_CSS).catch(() => {}));
+  wc.on('dom-ready', async () => {
+    await wc.insertCSS(NO_DRAG_CSS).catch(() => {});
+    // Vùng kéo cửa sổ trong suốt ở các đoạn trống mép trên trang (tự dò, xem src/page-drag.js)
+    wc.executeJavaScript(PAGE_DRAG_JS + `;window.__swDrag && window.__swDrag.setEnabled(${settings.pageDrag});`).catch(() => {});
+  });
   wc.on('did-finish-load', () => {
     if (handoff.has(tab.id)) applyHandoffCss(tab.id);
   });
@@ -962,6 +968,14 @@ ipcMain.on('settings:set-keep-awake', (_e, on) => {
 ipcMain.on('settings:set-reload-on-wake', (_e, on) => {
   settings.reloadOnWake = !!on;
   settingsStore.save(settings);
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+});
+ipcMain.on('settings:set-page-drag', (_e, on) => {
+  settings.pageDrag = !!on;
+  settingsStore.save(settings);
+  for (const v of views.values()) {
+    if (!v.webContents.isDestroyed()) v.webContents.executeJavaScript(`window.__swDrag && window.__swDrag.setEnabled(${settings.pageDrag})`).catch(() => {});
+  }
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
 ipcMain.on('settings:set-theme', (_e, theme) => {

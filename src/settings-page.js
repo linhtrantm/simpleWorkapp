@@ -5,6 +5,8 @@ const keepAc = document.getElementById('keep-ac');
 const keepBattery = document.getElementById('keep-battery');
 keepAc.addEventListener('change', () => window.simpleWork.setKeepAwake({ ac: keepAc.checked }));
 keepBattery.addEventListener('change', () => window.simpleWork.setKeepAwake({ battery: keepBattery.checked }));
+const pageDrag = document.getElementById('page-drag');
+pageDrag.addEventListener('change', () => window.simpleWork.setPageDrag(pageDrag.checked));
 const reloadWake = document.getElementById('reload-wake');
 reloadWake.addEventListener('change', () => window.simpleWork.setReloadOnWake(reloadWake.checked));
 const notifSound = document.getElementById('notif-sound');
@@ -104,7 +106,7 @@ list.addEventListener('dragover', (e) => {
 });
 list.addEventListener('drop', (e) => e.preventDefault());
 
-function render({ apps, version, iconLevel, lang: newLang, theme, accent, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
+function render({ apps, version, iconLevel, lang: newLang, theme, accent, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake, pageDrag: pageDragOn }) {
   lang = newLang || 'vi';
   i18n.apply(lang, document);
   swTheme.apply(accent, document);
@@ -115,6 +117,7 @@ function render({ apps, version, iconLevel, lang: newLang, theme, accent, notify
   keepAc.checked = keepAwakeAc !== false;
   keepBattery.checked = keepAwakeBattery !== false;
   reloadWake.checked = reloadOnWake !== false;
+  pageDrag.checked = pageDragOn !== false;
   for (const b of themes.children) b.classList.toggle('on', b.dataset.theme === theme);
   for (const b of accents.children) b.classList.toggle('on', b.dataset.accent === accent);
   ver.textContent = 'v' + version;

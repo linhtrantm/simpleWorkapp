@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('simpleWork', {
   setEnabled: (id, enabled) => ipcRenderer.send('settings:set-enabled', id, enabled),
   setIconSize: (size) => ipcRenderer.send('settings:set-icon-size', size),
   setKeepAwake: (opts) => ipcRenderer.send('settings:set-keep-awake', opts),
+  setPageDrag: (on) => ipcRenderer.send('settings:set-page-drag', on),
   setReloadOnWake: (on) => ipcRenderer.send('settings:set-reload-on-wake', on),
   setNotifySound: (on) => ipcRenderer.send('settings:set-notify-sound', on),
   setTheme: (theme) => ipcRenderer.send('settings:set-theme', theme),

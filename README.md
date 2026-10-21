@@ -2,7 +2,7 @@
 
 App desktop macOS (Electron) gom Zalo, WhatsApp, Teams, Messenger, Claude và các web app tuỳ ý vào một cửa sổ. Mỗi app có phiên đăng nhập riêng, giữ nguyên qua các lần mở và các lần cập nhật.
 
-Phiên bản hiện tại: **1.3.1** (macOS, Apple Silicon).
+Phiên bản hiện tại: **1.4.0** (macOS, Apple Silicon).
 
 ## Tính năng
 
@@ -13,6 +13,7 @@ Phiên bản hiện tại: **1.3.1** (macOS, Apple Silicon).
 - **Màn hình chờ và báo lỗi** riêng cho từng app, có nút Thử lại.
 - **Cài đặt** (nút ⚙): bật/tắt từng app, kéo thả đổi thứ tự, thêm/xoá app tuỳ ý (tên, URL, màu), thanh trượt cỡ icon 6 mức, chủ đề Tự động/Sáng/Tối, 5 màu nhấn, âm thanh thông báo, ngôn ngữ Tiếng Việt / English.
 - **Chuột phải vào icon app:** Tải lại, Mở trong trình duyệt.
+- **Kéo cửa sổ ngay trên giao diện app:** app tự dò các khoảng trống trong hàng tiêu đề phía trên cùng của mỗi trang (không có chữ, avatar, nút, ô search) và đặt vùng kéo cửa sổ trong suốt ở đó (`src/page-drag.js`), tự dò lại khi đổi kích thước cửa sổ hoặc giao diện app đổi. Có công tắc trong Cài đặt.
 - Link bấm trong chat mở bằng **trình duyệt mặc định** của macOS. Chỉ popup đăng nhập mới mở trong app.
 
 ## Chạy
@@ -30,7 +31,7 @@ Nếu chạy trong terminal của VSCode mà app crash ngay, thử `env -u ELECT
 npm run dist
 ```
 
-Kết quả: `dist/simpleWork-1.3.1-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
+Kết quả: `dist/simpleWork-1.4.0-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
 
 App được ký **ad-hoc**, chưa có Apple Developer ID nên chưa notarize. Ký ad-hoc là điều kiện để macOS đưa app vào mục Thông báo. Lần đầu mở nếu bị Gatekeeper chặn: chuột phải vào app > Open, hoặc `xattr -cr /Applications/simpleWork.app`.
 
@@ -74,6 +75,7 @@ src/
   main.js            tiến trình chính: cửa sổ, các view web, thông báo, menu bar, cài đặt
   preload.js         cầu nối IPC cho các trang giao diện
   notify-bridge.js   chuyển thông báo web sang thông báo gốc macOS
+  page-drag.js       tự dò khoảng trống trong hàng tiêu đề trang app, đặt vùng kéo cửa sổ trong suốt
   no-webauthn.js     tắt passkey ở các app cần
   tabs.config.js     danh sách app có sẵn
   settings.js        lưu và đọc settings.json
