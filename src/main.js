@@ -10,6 +10,9 @@ app.commandLine.appendSwitch('disable-background-timer-throttling');
 
 const builtinTabs = require('./tabs.config');
 const settingsStore = require('./settings');
+const dayStore = require('./daytask-store');
+const dayAgent = require('./daytask-agent');
+const swTheme = require('./theme');
 const i18n = require('./i18n');
 
 // Kích thước thanh bên theo cỡ icon (px)
@@ -28,6 +31,11 @@ const LOAD_TIMEOUT_MS = 10000; // quá thời gian này vẫn hiện trang dù c
 const SPLASH_MIN_MS = 1600;
 const SPLASH_MAX_MS = 10000;
 const bgColor = () => (nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#f2f2f7');
+// Màu nhấn gửi cho các trang: tên màu có sẵn hoặc mã '#rrggbb' nếu người dùng tự pha
+const accentValue = () => (settings.accent === 'custom' ? settings.accentCustom : settings.accent);
+// Theme khung (thanh bên): null = mặc định
+const frameInfo = () => swTheme.resolveFrame(settings.frame, settings.frameCustom, accentValue());
+const windowBg = () => (frameInfo() ? frameInfo().base : bgColor());
 const cardColor = () => (nativeTheme.shouldUseDarkColors ? '#2c2c2e' : '#ffffff');
 const USER_AGENT =
   `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`;
@@ -39,8 +47,13 @@ let settingsView = null;
 let handoffView = null;
 let aboutWin = null;
 let settingsOpen = false;
+let dayView = null;
+let dayOpen = false;
+let dayTray = null;
+let dayTraySig = '';
+let dayBeatTimer = null;
 let splashView = null;
-let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, pageDrag: true, notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [] };
+let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', accentCustom: '#f58a1f', frame: 'none', frameCustom: '#2b5cff', order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
@@ -52,15 +65,22 @@ const loadTimers = new Map();
 const handoff = new Set(); // app đang được mở ở trình duyệt ngoài: làm mờ, khoá, tắt thông báo
 const handoffCss = new Map(); // id -> key CSS đã chèn
 // Giao diện web của Zalo... khai báo vùng "kéo cửa sổ" cho app desktop của họ (gồm cả ô Search), trong simpleWork
-// nó làm cả cửa sổ bị kéo đi khi bấm vào. Tắt hết vùng kéo do trang web tự khai báo.
+// nó làm cả cửa sổ bị kéo đi khi bấm vào. Tắt hết vùng kéo do trang web tự khai báo (chỉ kéo cửa sổ bằng thanh bên).
+// :not(#x) chỉ để tăng độ ưu tiên của selector, thắng CSS của trang.
 const NO_DRAG_CSS = '*:not(#sw-a):not(#sw-b),*:not(#sw-a):not(#sw-b)::before,*:not(#sw-a):not(#sw-b)::after{-webkit-app-region:no-drag!important}';
-const PAGE_DRAG_JS = fs.readFileSync(path.join(__dirname, 'page-drag.js'), 'utf8');
 const HANDOFF_CSS = 'html{filter:blur(14px) saturate(.75)!important;pointer-events:none!important;user-select:none!important;transition:filter .3s}';
 const notifUnread = new Map(); // id -> số thông báo nhận kể từ lần xem gần nhất (dự phòng cho app title không có số)
 
 const T = (key, vars) => i18n.t(settings.lang, key, vars);
 const ui = () => ICON_LEVELS[(settings.iconLevel || 4) - 1] || ICON_LEVELS[3];
 // App tuỳ ý (người dùng thêm trong Cài đặt) được chuyển thành entry giống tabs.config
+// Host đăng nhập phổ biến: app tuỳ ý (Outlook...) bị chuyển hướng sang đây khi đăng nhập, phải mở trong app
+// thay vì đẩy ra trình duyệt ngoài (khiến phiên đăng nhập không về lại app).
+const LOGIN_HOSTS = [
+  'login.microsoftonline.com', 'login.microsoft.com', 'login.live.com', 'account.live.com', 'account.microsoft.com',
+  'microsoftonline.com', 'msauth.net', 'msftauth.net', 'microsoft.com', 'office.com', 'cloud.microsoft',
+  'accounts.google.com', 'appleid.apple.com'
+];
 function customToTab(c) {
   let host = '';
   try {
@@ -74,11 +94,15 @@ function customToTab(c) {
     letter: c.name.trim().charAt(0).toUpperCase(),
     color: c.color,
     custom: true,
+    disableWebAuthn: true,
+    authHosts: LOGIN_HOSTS,
     internalHosts: host ? [host] : []
   };
 }
+// Mục "Việc hôm nay" nằm trên thanh bên như một app nhưng không có trang web: bấm vào thì mở trang phủ của riêng nó (local: true)
+const dayTab = () => ({ id: 'daytask', name: T('dayTask'), icon: 'icons/daytask.svg', color: '#34c759', local: true });
 const allTabs = () => {
-  const base = [...builtinTabs, ...settings.customApps.map(customToTab)];
+  const base = [...builtinTabs, dayTab(), ...settings.customApps.map(customToTab)];
   const rank = (t) => {
     const i = settings.order.indexOf(t.id);
     return i < 0 ? 1e6 + base.indexOf(t) : i;
@@ -88,6 +112,7 @@ const allTabs = () => {
 const tabById = (id) => allTabs().find((t) => t.id === id);
 const isEnabled = (id) => !settings.disabled.includes(id);
 const enabledTabs = () => allTabs().filter((t) => isEnabled(t.id));
+const webTabs = () => enabledTabs().filter((t) => !t.local);
 
 function hostMatches(url, hosts) {
   try {
@@ -109,25 +134,29 @@ function layout() {
   };
   for (const v of views.values()) v.setBounds(content);
   if (settingsView) settingsView.setBounds(content);
+  if (dayView) dayView.setBounds(content);
   if (handoffView) handoffView.setBounds(content);
   if (splashView) splashView.setBounds({ x: 0, y: 0, width: w, height: h });
 }
 
 function sendState() {
   refreshTray();
+  refreshDayTray();
   if (!win) return;
   win.webContents.send('tabs:state', {
     tabs: enabledTabs().map((t) => ({
-      id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, unread: unread.get(t.id) || 0
+      id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, local: !!t.local, unread: unread.get(t.id) || 0
     })),
     activeId,
     settingsOpen,
+    dayOpen,
     handoff: [...handoff],
     version: app.getVersion(),
     canOpenExternal: !!activeId,
     load: { state: (activeId && loadState.get(activeId)) || 'ready', error: (activeId && loadError.get(activeId)) || '' },
     lang: settings.lang,
-    accent: settings.accent,
+    accent: accentValue(),
+    frame: frameInfo(),
     ui: ui()
   });
 }
@@ -139,13 +168,16 @@ function settingsState() {
     lang: settings.lang,
     theme: settings.theme,
     accent: settings.accent,
+    accentCustom: settings.accentCustom,
+    accentHex: accentValue(),
+    frame: settings.frame,
+    frameCustom: settings.frameCustom,
     notifySound: settings.notifySound,
     keepAwakeAc: settings.keepAwakeAc,
     keepAwakeBattery: settings.keepAwakeBattery,
     reloadOnWake: settings.reloadOnWake,
-    pageDrag: settings.pageDrag,
     apps: allTabs().map((t) => ({
-      id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, custom: !!t.custom, enabled: isEnabled(t.id)
+      id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, custom: !!t.custom, local: !!t.local, enabled: isEnabled(t.id)
     }))
   };
 }
@@ -160,7 +192,7 @@ function refreshUnread(id) {
   sendState();
 }
 
-const isViewing = (id) => id === activeId && !settingsOpen && !!win && win.isVisible() && win.isFocused();
+const isViewing = (id) => id === activeId && !settingsOpen && !dayOpen && !!win && win.isVisible() && win.isFocused();
 
 function clearUnread(id) {
   titleUnread.delete(id);
@@ -254,11 +286,7 @@ function createView(tab) {
     }
   });
 
-  wc.on('dom-ready', async () => {
-    await wc.insertCSS(NO_DRAG_CSS).catch(() => {});
-    // Vùng kéo cửa sổ trong suốt ở các đoạn trống mép trên trang (tự dò, xem src/page-drag.js)
-    wc.executeJavaScript(PAGE_DRAG_JS + `;window.__swDrag && window.__swDrag.setEnabled(${settings.pageDrag});`).catch(() => {});
-  });
+  wc.on('dom-ready', () => wc.insertCSS(NO_DRAG_CSS).catch(() => {}));
   wc.on('did-finish-load', () => {
     if (handoff.has(tab.id)) applyHandoffCss(tab.id);
   });
@@ -358,9 +386,10 @@ function refreshHandoffOverlay() {
   const tab = tabById(activeId);
   const send = () =>
     handoffView.webContents.send('handoff:show', {
-      name: tab.name, icon: tab.icon, art: tab.art, tile: tab.tile, gradient: tab.gradient, letter: tab.letter, color: tab.color, lang: settings.lang, accent: settings.accent
+      name: tab.name, icon: tab.icon, art: tab.art, tile: tab.tile, gradient: tab.gradient, letter: tab.letter, color: tab.color, lang: settings.lang, accent: accentValue()
     });
   win.contentView.addChildView(handoffView); // đưa lên trên các app
+  if (dayView && dayOpen) win.contentView.addChildView(dayView);
   if (settingsView && settingsOpen) win.contentView.addChildView(settingsView);
   if (splashView) win.contentView.addChildView(splashView);
   handoffView.setVisible(true);
@@ -381,6 +410,7 @@ function applyVisibility() {
   // Đưa app đang xem lên trên cùng, rồi đưa các lớp phủ (Cài đặt, loader) lên trên nữa
   if (activeReady && raisedId !== activeId && views.has(activeId) && win) {
     win.contentView.addChildView(views.get(activeId));
+    if (dayView && dayOpen) win.contentView.addChildView(dayView);
     if (settingsView && settingsOpen) win.contentView.addChildView(settingsView);
     if (splashView) win.contentView.addChildView(splashView);
     raisedId = activeId;
@@ -409,12 +439,17 @@ function selectTab(id) {
   if (!isEnabled(id)) return;
   const tab = tabById(id);
   if (!tab) return;
+  if (tab.local) {
+    setDayOpen(true);
+    return;
+  }
   let view = views.get(id);
   if (!view) view = createView(tab);
   activeId = id;
   applyVisibility();
   clearUnread(id); // bấm vào xem là hết badge
   setSettingsOpen(false);
+  setDayOpen(false);
   view.webContents.focus();
   sendState();
 }
@@ -435,6 +470,7 @@ function ensureSettingsView() {
 function setSettingsOpen(open) {
   if (open === settingsOpen) return;
   if (open) {
+    if (dayOpen) setDayOpen(false);
     ensureSettingsView();
     win.contentView.addChildView(settingsView); // đưa lên trên cùng
     settingsView.setVisible(true);
@@ -447,22 +483,57 @@ function setSettingsOpen(open) {
   sendState();
 }
 
+function ensureDayView() {
+  if (dayView) return;
+  dayView = new WebContentsView({
+    webPreferences: { preload: path.join(__dirname, 'daytask-preload.js'), contextIsolation: true, sandbox: true }
+  });
+  dayView.setBorderRadius(CARD_RADIUS);
+  dayView.setBackgroundColor(cardColor());
+  dayView.setVisible(false);
+  dayView.webContents.loadFile(path.join(__dirname, 'daytask.html'));
+  win.contentView.addChildView(dayView);
+  layout();
+}
+
+function setDayOpen(open) {
+  if (open === dayOpen) return;
+  if (open) {
+    if (settingsOpen) setSettingsOpen(false);
+    ensureDayView();
+    win.contentView.addChildView(dayView);
+    dayView.setVisible(true);
+    dayView.webContents.send('daytask:shown');
+    dayView.webContents.focus();
+  } else if (dayView) {
+    dayView.setVisible(false);
+  }
+  dayOpen = open;
+  sendState();
+}
+
 function applyEnabledChange(id, enabled) {
   const disabled = new Set(settings.disabled);
   if (enabled) disabled.delete(id);
   else {
-    if (enabledTabs().length <= 1) return; // luôn giữ ít nhất 1 app
+    if (!tabById(id).local && webTabs().length <= 1) return; // luôn giữ ít nhất 1 app web
     disabled.add(id);
   }
   settings.disabled = [...disabled];
   settingsStore.save(settings);
 
-  if (enabled) {
+  if (tabById(id).local) {
+    if (!enabled) {
+      setDayOpen(false);
+      dayStore.pause(); // tắt mục này thì không để đồng hồ chạy ngầm
+    }
+    setImmediate(() => dayAgent.sync());
+  } else if (enabled) {
     if (!views.has(id)) createView(tabById(id));
   } else {
     destroyView(id);
     if (activeId === id) {
-      activeId = enabledTabs()[0].id;
+      activeId = webTabs()[0].id;
       applyVisibility();
     }
   }
@@ -569,7 +640,7 @@ function sendAboutData() {
   aboutWin.webContents.send('about:data', {
     version: app.getVersion() + (build ? ` (${build})` : ''),
     lang: settings.lang,
-    accent: settings.accent,
+    accent: accentValue(),
     year: new Date().getFullYear()
   });
 }
@@ -613,6 +684,52 @@ function showWindow() {
   if (!win) createWindow();
   win.show();
   win.focus();
+}
+
+function openPage() {
+  if (!win) createWindow();
+  win.show();
+  win.focus();
+  setDayOpen(true);
+}
+
+// ---- Menu bar thứ hai: việc đang làm (chỉ hiện tên việc) ----
+const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+function refreshDayTray() {
+  if (!isEnabled('daytask')) {
+    if (dayTray) {
+      dayTray.destroy();
+      dayTray = null;
+    }
+    dayTraySig = '';
+    return;
+  }
+  const v = dayStore.view();
+  const sig = settings.lang + JSON.stringify([v.active, v.todo.map((t) => [t.id, t.title])]);
+  if (dayTray && sig === dayTraySig) return;
+  dayTraySig = sig;
+  if (!dayTray) {
+    const img = nativeImage.createFromPath(path.join(__dirname, 'assets', 'dayTaskTemplate.png'));
+    img.setTemplateImage(true);
+    dayTray = new Tray(img);
+  }
+  dayTray.setTitle(v.active ? ' ' + clip(v.active.title, 28) : '');
+  dayTray.setToolTip(v.active ? T('dayDoing', { name: v.active.title }) : T('dayTask'));
+  const items = [];
+  if (v.active) {
+    items.push({ label: T('dayDoing', { name: clip(v.active.title, 40) }), enabled: false });
+    items.push({ label: T('dayPause'), click: () => dayStore.pause() });
+    items.push({ label: T('dayDoneBtn', { name: clip(v.active.title, 40) }), click: () => dayStore.done() });
+  } else {
+    items.push({ label: T('dayNoActive'), enabled: false });
+    for (const t of v.todo.slice(0, 8)) items.push({ label: T('dayStartItem', { name: clip(t.title, 40) }), click: () => dayStore.start(t.id) });
+  }
+  items.push({ type: 'separator' });
+  items.push({
+    label: T('dayOpenPage'),
+    click: openPage
+  });
+  dayTray.setContextMenu(Menu.buildFromTemplate(items));
 }
 
 function refreshTray() {
@@ -685,7 +802,7 @@ function addCustomApp({ name, url, color }) {
 function removeCustomApp(id) {
   const c = settings.customApps.find((a) => a.id === id);
   if (!c) return { ok: false };
-  if (enabledTabs().length <= 1 && isEnabled(id)) return { ok: false, error: 'last' };
+  if (webTabs().length <= 1 && isEnabled(id)) return { ok: false, error: 'last' };
   const tab = customToTab(c);
   destroyView(id);
   settings.customApps = settings.customApps.filter((a) => a.id !== id);
@@ -694,7 +811,7 @@ function removeCustomApp(id) {
   session.fromPartition(tab.partition).clearStorageData().catch(() => {});
   if (activeId === id) {
     activeId = null;
-    selectTab(enabledTabs()[0].id);
+    selectTab(webTabs()[0].id);
   }
   updateBadge();
   sendState();
@@ -732,7 +849,7 @@ function createWindow() {
     minWidth: 860,
     minHeight: 520,
     title: 'simpleWork',
-    backgroundColor: bgColor(), // flat: nền đặc, không kính mờ
+    backgroundColor: windowBg(), // flat: nền đặc, không kính mờ
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 13, y: 10 },
     webPreferences: {
@@ -747,9 +864,9 @@ function createWindow() {
     if (activeId && !settingsOpen) clearUnread(activeId);
   });
   win.webContents.once('did-finish-load', () => {
-    const first = enabledTabs()[0];
+    const first = webTabs()[0];
     // Mở hết các app đang bật ngay khi khởi động để không lỡ tin nhắn
-    for (const t of enabledTabs()) if (!views.has(t.id)) createView(t);
+    for (const t of webTabs()) if (!views.has(t.id)) createView(t);
     selectTab(first.id);
     const ready = new Promise((resolve) => views.get(first.id).webContents.once('did-finish-load', resolve));
     showSplash(ready);
@@ -765,10 +882,12 @@ function createWindow() {
     win = null;
     views.clear();
     settingsView = null;
+    dayView = null;
     splashView = null;
     handoffView = null;
     handoff.clear();
     settingsOpen = false;
+    dayOpen = false;
   });
 }
 
@@ -912,7 +1031,7 @@ ipcMain.on('tabs:reload', (_e, id) => reloadTab(id));
 // Chuột phải vào icon app trên thanh bên
 ipcMain.on('tabs:menu', (_e, id) => {
   const tab = tabById(id);
-  if (!tab || !win) return;
+  if (!tab || tab.local || !win) return;
   Menu.buildFromTemplate([
     { label: T('reload', { name: tab.name }), click: () => reloadTab(id) },
     handoff.has(id)
@@ -930,6 +1049,23 @@ ipcMain.on('tabs:open-external', () => {
   const url = v.webContents.getURL();
   if (/^https?:/.test(url)) shell.openExternal(url);
 });
+ipcMain.on('daytask:close', () => setDayOpen(false));
+// Mỗi thao tác trả về trạng thái mới, kèm ngôn ngữ và màu nhấn để trang vẽ đúng
+const dayReply = (fn) => (_e, ...args) => ({ ...fn(...args), lang: settings.lang, accent: accentValue() });
+ipcMain.handle('daytask:view', dayReply(dayStore.view));
+ipcMain.handle('daytask:add', dayReply((title) => dayStore.add(String(title || ''), '')));
+ipcMain.handle('daytask:update', dayReply((id, patch) => dayStore.update(String(id), { title: patch && patch.title })));
+ipcMain.handle('daytask:remove', dayReply((id) => dayStore.remove(String(id))));
+ipcMain.handle('daytask:toggle', dayReply((id) => dayStore.toggle(String(id))));
+ipcMain.handle('daytask:reorder', dayReply(dayStore.reorder));
+ipcMain.handle('daytask:start', dayReply((id, prev) => dayStore.start(String(id), prev === 'pause' || prev === 'done' ? prev : undefined)));
+ipcMain.handle('daytask:tpl-add', dayReply((title, days) => dayStore.addTemplate(String(title || ''), days)));
+ipcMain.handle('daytask:tpl-remove', dayReply((id) => dayStore.removeTemplate(String(id))));
+ipcMain.handle('daytask:prefs', dayReply((patch) => dayStore.setPrefs(patch && typeof patch === 'object' ? patch : {})));
+ipcMain.handle('daytask:pause', dayReply(() => dayStore.pause()));
+ipcMain.handle('daytask:done', dayReply(dayStore.done));
+ipcMain.handle('daytask:carry', dayReply(dayStore.carry));
+ipcMain.handle('daytask:skip-carry', dayReply(dayStore.skipCarry));
 ipcMain.on('settings:toggle', () => setSettingsOpen(!settingsOpen));
 ipcMain.on('settings:close', () => setSettingsOpen(false));
 ipcMain.handle('settings:get', settingsState);
@@ -970,14 +1106,6 @@ ipcMain.on('settings:set-reload-on-wake', (_e, on) => {
   settingsStore.save(settings);
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
-ipcMain.on('settings:set-page-drag', (_e, on) => {
-  settings.pageDrag = !!on;
-  settingsStore.save(settings);
-  for (const v of views.values()) {
-    if (!v.webContents.isDestroyed()) v.webContents.executeJavaScript(`window.__swDrag && window.__swDrag.setEnabled(${settings.pageDrag})`).catch(() => {});
-  }
-  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
-});
 ipcMain.on('settings:set-theme', (_e, theme) => {
   if (!['system', 'light', 'dark'].includes(theme)) return;
   settings.theme = theme;
@@ -986,12 +1114,38 @@ ipcMain.on('settings:set-theme', (_e, theme) => {
   sendState();
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
-ipcMain.on('settings:set-accent', (_e, accent) => {
-  if (!['orange', 'blue', 'purple', 'pink', 'green'].includes(accent)) return;
-  settings.accent = accent;
-  settingsStore.save(settings);
+// Đổi màu nhấn hoặc theme khung: cập nhật ngay mọi cửa sổ; kéo thanh pha màu bắn liên tục nên lưu file có trễ
+let themeSaveTimer = null;
+function themeChanged() {
+  if (win && !win.isDestroyed()) win.setBackgroundColor(windowBg());
   sendState();
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+  if (dayView && !dayView.webContents.isDestroyed()) dayView.webContents.send('daytask:changed');
+  dayAgent.sync(); // widget vẽ lại theo màu mới
+  clearTimeout(themeSaveTimer);
+  themeSaveTimer = setTimeout(() => settingsStore.save(settings), 300);
+}
+ipcMain.on('settings:set-accent', (_e, accent) => {
+  if (!Object.keys(swTheme.ACCENTS).includes(accent)) return;
+  settings.accent = accent;
+  themeChanged();
+});
+ipcMain.on('settings:set-accent-custom', (_e, hex) => {
+  if (!swTheme.isHex(hex)) return;
+  settings.accent = 'custom';
+  settings.accentCustom = hex.toLowerCase();
+  themeChanged();
+});
+ipcMain.on('settings:set-frame', (_e, frame) => {
+  if (!swTheme.FRAME_IDS.includes(frame) || frame === 'custom') return;
+  settings.frame = frame;
+  themeChanged();
+});
+ipcMain.on('settings:set-frame-custom', (_e, hex) => {
+  if (!swTheme.isHex(hex)) return;
+  settings.frame = 'custom';
+  settings.frameCustom = hex.toLowerCase();
+  themeChanged();
 });
 ipcMain.on('settings:set-order', (_e, ids) => {
   if (!Array.isArray(ids)) return;
@@ -1011,15 +1165,28 @@ ipcMain.on('settings:set-enabled', (_e, id, enabled) => {
 app.whenReady().then(() => {
   settings = settingsStore.load();
   // Phòng trường hợp file settings tắt hết
-  if (enabledTabs().length === 0) settings.disabled = [];
+  if (webTabs().length === 0) settings.disabled = [];
   // Giữ máy thức để nhận thông báo, nhưng CHỈ khi cắm sạc (chạy pin thì để máy ngủ bình thường)
   startKeepAwakeWatch();
   nativeTheme.themeSource = settings.theme;
   nativeTheme.on('updated', () => {
-    if (win && !win.isDestroyed()) win.setBackgroundColor(bgColor());
+    if (win && !win.isDestroyed()) win.setBackgroundColor(windowBg());
     if (settingsView) settingsView.setBackgroundColor(cardColor());
+    if (dayView) dayView.setBackgroundColor(cardColor());
     for (const v of views.values()) v.setBackgroundColor(cardColor());
   });
+  dayAgent.init({ store: dayStore, T, enabled: () => isEnabled('daytask'), openPage });
+  dayStore.onChange(() => {
+    refreshDayTray();
+    dayAgent.sync();
+    if (dayView && !dayView.webContents.isDestroyed()) dayView.webContents.send('daytask:changed');
+  });
+  // Mỗi 30 giây ghi nhịp cho việc đang làm (để lần sau biết app còn sống tới đâu) và làm mới menu bar khi sang ngày
+  dayBeatTimer = setInterval(() => {
+    dayStore.beat();
+    dayAgent.tick();
+    refreshDayTray();
+  }, 30 * 1000);
   createWindow();
   createTray();
   buildAppMenu();
@@ -1030,6 +1197,9 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
+  clearInterval(dayBeatTimer);
+  dayStore.beat(); // chốt thời điểm cuối của việc đang làm
+  dayAgent.stop();
   if (keepAwakeId !== null) powerSaveBlocker.stop(keepAwakeId);
   keepAwakeId = null;
   clearInterval(keepAwakeTimer);

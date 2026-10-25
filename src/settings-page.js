@@ -5,8 +5,6 @@ const keepAc = document.getElementById('keep-ac');
 const keepBattery = document.getElementById('keep-battery');
 keepAc.addEventListener('change', () => window.simpleWork.setKeepAwake({ ac: keepAc.checked }));
 keepBattery.addEventListener('change', () => window.simpleWork.setKeepAwake({ battery: keepBattery.checked }));
-const pageDrag = document.getElementById('page-drag');
-pageDrag.addEventListener('change', () => window.simpleWork.setPageDrag(pageDrag.checked));
 const reloadWake = document.getElementById('reload-wake');
 reloadWake.addEventListener('change', () => window.simpleWork.setReloadOnWake(reloadWake.checked));
 const notifSound = document.getElementById('notif-sound');
@@ -57,6 +55,109 @@ themes.addEventListener('click', (e) => {
   if (th) window.simpleWork.setTheme(th);
 });
 
+// Bộ pha màu: ba thanh Sắc / Đậm / Sáng cộng ô nhập mã màu. Giữ HSL riêng để kéo thanh không bị làm tròn theo mã hex.
+function makeMixer(host, onPick) {
+  const hsl = [30, 90, 54];
+  host.innerHTML =
+    '<div class="top"><div class="sw"></div><input type="text" maxlength="7" spellcheck="false" autocomplete="off"></div>' +
+    ['mixHue', 'mixSat', 'mixLight'].map((k, i) => `<label><span data-i18n="${k}"></span><input type="range" min="0" max="${i ? 100 : 360}" step="1"><output></output></label>`).join('');
+  const sw = host.querySelector('.sw');
+  const hex = host.querySelector('input[type=text]');
+  const ranges = [...host.querySelectorAll('input[type=range]')];
+  const outs = [...host.querySelectorAll('output')];
+  const color = () => swTheme.hslToHex(hsl[0], hsl[1], hsl[2]);
+  function paint() {
+    const c = color();
+    sw.style.background = c;
+    if (document.activeElement !== hex) hex.value = c;
+    ranges.forEach((r, i) => {
+      if (document.activeElement !== r) r.value = hsl[i];
+      outs[i].textContent = hsl[i];
+    });
+    const [h, s, l] = hsl;
+    ranges[0].style.background = 'linear-gradient(90deg,' + [0, 60, 120, 180, 240, 300, 360].map((x) => swTheme.hslToHex(x, 100, 50)).join(',') + ')';
+    ranges[1].style.background = `linear-gradient(90deg, ${swTheme.hslToHex(h, 0, l)}, ${swTheme.hslToHex(h, 100, l)})`;
+    ranges[2].style.background = `linear-gradient(90deg, #000, ${swTheme.hslToHex(h, s, 50)}, #fff)`;
+  }
+  let raf = 0;
+  const emit = () => {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => onPick(color()));
+  };
+  ranges.forEach((r, i) =>
+    r.addEventListener('input', () => {
+      hsl[i] = Number(r.value);
+      paint();
+      emit();
+    })
+  );
+  hex.addEventListener('input', () => {
+    let v = hex.value.trim();
+    if (v && v[0] !== '#') v = '#' + v;
+    if (!swTheme.isHex(v)) return;
+    hsl.splice(0, 3, ...swTheme.hexToHsl(v));
+    paint();
+    onPick(v.toLowerCase());
+  });
+  hex.addEventListener('blur', paint);
+  return {
+    set(c) {
+      if (!swTheme.isHex(c) || c.toLowerCase() === color().toLowerCase()) return;
+      hsl.splice(0, 3, ...swTheme.hexToHsl(c));
+      paint();
+    },
+    paint
+  };
+}
+const accentMix = makeMixer(document.getElementById('accentMix'), (c) => window.simpleWork.setAccentCustom(c));
+const frameMix = makeMixer(document.getElementById('frameMix'), (c) => window.simpleWork.setFrameCustom(c));
+const framesEl = document.getElementById('frames');
+
+// Màu nhấn có sẵn + nút "tuỳ chọn" mở bộ pha màu
+{
+  const btn = document.createElement('button');
+  btn.dataset.accent = 'custom';
+  btn.className = 'custom';
+  btn.addEventListener('click', () => window.simpleWork.setAccentCustom(swTheme.isHex(lastCustom.accent) ? lastCustom.accent : '#f58a1f'));
+  accents.appendChild(btn);
+}
+const lastCustom = { accent: '#f58a1f', frame: '#2b5cff' };
+function buildFrames() {
+  framesEl.replaceChildren();
+  const add = (id, label, pvNode) => {
+    const b = document.createElement('button');
+    b.className = 'frame';
+    b.dataset.frame = id;
+    const pv = document.createElement('div');
+    pv.className = 'pv';
+    pvNode(pv);
+    const name = document.createElement('span');
+    name.textContent = label;
+    b.append(pv, name);
+    b.addEventListener('click', () => {
+      if (id === 'custom') window.simpleWork.setFrameCustom(lastCustom.frame);
+      else window.simpleWork.setFrame(id);
+    });
+    framesEl.appendChild(b);
+  };
+  const rail = (css) => (pv) => {
+    const i = document.createElement('i');
+    i.style.background = css;
+    pv.append(i, document.createElement('i'));
+  };
+  add('none', i18n.t(lang, 'frameNone'), (pv) => {
+    const i = document.createElement('i');
+    i.style.background = 'var(--bg)';
+    pv.append(i, document.createElement('i'));
+  });
+  Object.entries(swTheme.FRAMES).forEach(([id, f]) => add(id, i18n.t(lang, 'frame_' + id), rail(f.css)));
+  add('accent', i18n.t(lang, 'frameAccent'), rail('var(--accent)'));
+  add('custom', i18n.t(lang, 'frameCustom'), (pv) => {
+    pv.classList.add('conic');
+    pv.append(document.createElement('i'), document.createElement('i'));
+  });
+}
+
 Object.entries(swTheme.ACCENTS).forEach(([key, [a]]) => {
   const btn = document.createElement('button');
   btn.dataset.accent = key;
@@ -106,10 +207,25 @@ list.addEventListener('dragover', (e) => {
 });
 list.addEventListener('drop', (e) => e.preventDefault());
 
-function render({ apps, version, iconLevel, lang: newLang, theme, accent, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake, pageDrag: pageDragOn }) {
+let framesLang = '';
+function render({ apps, version, iconLevel, lang: newLang, theme, accent, accentCustom, accentHex, frame, frameCustom, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
   lang = newLang || 'vi';
   i18n.apply(lang, document);
-  swTheme.apply(accent, document);
+  swTheme.apply(accentHex || accent, document);
+  lastCustom.accent = accentCustom || lastCustom.accent;
+  lastCustom.frame = frameCustom || lastCustom.frame;
+  if (framesLang !== lang) {
+    framesLang = lang;
+    buildFrames();
+  }
+  document.getElementById('accentMix').hidden = accent !== 'custom';
+  document.getElementById('frameMix').hidden = frame !== 'custom';
+  accentMix.set(accentCustom);
+  frameMix.set(frameCustom);
+  accentMix.paint();
+  frameMix.paint();
+  accents.querySelector('.custom').style.background = accent === 'custom' ? accentHex : '';
+  for (const b of framesEl.children) b.classList.toggle('on', b.dataset.frame === frame);
   for (const b of langs.children) b.classList.toggle('on', b.dataset.lang === lang);
   if (document.activeElement !== level) level.value = iconLevel || 4;
   paintLevel();
@@ -117,12 +233,11 @@ function render({ apps, version, iconLevel, lang: newLang, theme, accent, notify
   keepAc.checked = keepAwakeAc !== false;
   keepBattery.checked = keepAwakeBattery !== false;
   reloadWake.checked = reloadOnWake !== false;
-  pageDrag.checked = pageDragOn !== false;
   for (const b of themes.children) b.classList.toggle('on', b.dataset.theme === theme);
   for (const b of accents.children) b.classList.toggle('on', b.dataset.accent === accent);
   ver.textContent = 'v' + version;
 
-  const enabledCount = apps.filter((a) => a.enabled).length;
+  const enabledCount = apps.filter((a) => a.enabled && !a.local).length; // luôn giữ ít nhất 1 app web
   list.replaceChildren(
     ...apps.map((a) => {
       const row = document.createElement('div');
@@ -191,7 +306,7 @@ function render({ apps, version, iconLevel, lang: newLang, theme, accent, notify
       const input = document.createElement('input');
       input.type = 'checkbox';
       input.checked = a.enabled;
-      input.disabled = a.enabled && enabledCount <= 1;
+      input.disabled = a.enabled && !a.local && enabledCount <= 1;
       input.addEventListener('change', () => window.simpleWork.setEnabled(a.id, input.checked));
       label.append(input, document.createElement('span'));
       row.appendChild(label);

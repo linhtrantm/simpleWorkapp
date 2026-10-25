@@ -1,11 +1,12 @@
 const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const theme = require('./theme');
 
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
 // { disabled: ['teams', ...], iconLevel: 1..6, customApps: [{ id, name, url, color }], lang: 'vi'|'en',
-// theme: 'system'|'light'|'dark', accent: orange|blue|purple|pink|green, order: [id...], notifySound: true|false, keepAwakeAc: true|false, keepAwakeBattery: true|false, reloadOnWake: true|false, pageDrag: true|false }
+// theme: 'system'|'light'|'dark', accent: orange|blue|purple|pink|green|custom (màu tự pha: accentCustom), frame: none|accent|custom|<tên theme khung> (frameCustom), order: [id...], notifySound: true|false, keepAwakeAc: true|false, keepAwakeBattery: true|false, reloadOnWake: true|false }
 // mặc định tất cả app đều bật
 function load() {
   try {
@@ -21,16 +22,18 @@ function load() {
       keepAwakeAc: typeof data.keepAwakeAc === 'boolean' ? data.keepAwakeAc : data.keepAwake !== 'off' && data.keepAwake !== false,
       keepAwakeBattery: typeof data.keepAwakeBattery === 'boolean' ? data.keepAwakeBattery : data.keepAwake === undefined ? true : data.keepAwake === 'always',
       reloadOnWake: data.reloadOnWake !== false,
-      pageDrag: data.pageDrag !== false,
       theme: ['system', 'light', 'dark'].includes(data.theme) ? data.theme : 'system',
-      accent: ['orange', 'blue', 'purple', 'pink', 'green'].includes(data.accent) ? data.accent : 'orange',
+      accent: Object.keys(theme.ACCENTS).includes(data.accent) || (data.accent === 'custom' && theme.isHex(data.accentCustom)) ? data.accent : 'orange',
+      accentCustom: theme.isHex(data.accentCustom) ? data.accentCustom : '#f58a1f',
+      frame: theme.FRAME_IDS.includes(data.frame) && !(data.frame === 'custom' && !theme.isHex(data.frameCustom)) ? data.frame : 'none',
+      frameCustom: theme.isHex(data.frameCustom) ? data.frameCustom : '#2b5cff',
       order: Array.isArray(data.order) ? data.order.filter((x) => typeof x === 'string') : [],
       customApps: Array.isArray(data.customApps)
         ? data.customApps.filter((a) => a && a.id && a.name && /^https?:\/\//.test(a.url))
         : []
     };
   } catch {
-    return { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', order: [], notifySound: true, keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, pageDrag: true };
+    return { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', accentCustom: '#f58a1f', frame: 'none', frameCustom: '#2b5cff', order: [], notifySound: true, keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true };
   }
 }
 

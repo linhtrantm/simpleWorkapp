@@ -99,11 +99,13 @@ function renderStage(state, tab) {
 
 function render(state) {
   last = state;
-  const { tabs, activeId, settingsOpen, ui } = state;
+  const { tabs, activeId, ui, dayOpen } = state;
+  const settingsOpen = state.settingsOpen || !!dayOpen; // trang phủ nào đang mở thì không app nào sáng
   const handedOff = new Set(state.handoff || []);
   lang = state.lang || 'vi';
   i18n.apply(lang, document);
   swTheme.apply(state.accent, document);
+  swTheme.applyFrame(state.frame, document);
 
   const root = document.documentElement.style;
   root.setProperty('--side-w', ui.width + 'px');
@@ -132,7 +134,7 @@ function render(state) {
     // giữ đúng thứ tự (app bật lại hoặc đổi thứ tự)
     const anchor = bar.children[i + 1]; // children[0] là #pill
     if (anchor !== entry.item) bar.insertBefore(entry.item, anchor || null);
-    const active = !settingsOpen && t.id === activeId;
+    const active = t.local ? !!dayOpen : !settingsOpen && t.id === activeId;
     entry.item.classList.toggle('active', active);
     entry.item.classList.toggle('handoff', handedOff.has(t.id));
     if (active) activeEl = entry.item;
@@ -146,7 +148,7 @@ function render(state) {
     }
     entry.count = t.unread;
   });
-  gear.classList.toggle('active', !!settingsOpen);
+  gear.classList.toggle('active', !!state.settingsOpen);
 
   const current = tabs.find((t) => t.id === activeId);
   document.body.style.setProperty('--tint', settingsOpen || !current ? 'var(--accent)' : current.color);

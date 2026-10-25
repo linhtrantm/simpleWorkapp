@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'">
+  <title>Việc hôm nay</title>
+  <link rel="stylesheet" href="assets/theme.css">
+  <style>
+    html, body { background: var(--card); }
+    body { overflow-y: auto; padding: 40px 48px 56px; }
+    .page { max-width: 620px; margin: 0 auto; }
+    h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.025em; }
+    .sub { color: var(--muted); font-size: 12.5px; margin: 6px 0 22px; }
+    .add { width: 100%; box-sizing: border-box; user-select: text; -webkit-user-select: text; background: var(--input); border: 1px solid var(--border2); border-radius: 12px; color: var(--text); padding: 12px 14px; font: 14px -apple-system, BlinkMacSystemFont, sans-serif; outline: none; }
+    .add:focus { border-color: var(--accent); }
+    h2 { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 26px 0 10px 2px; }
+    .carry { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: var(--input); border: 1px solid var(--accent); }
+    .carry b { font-size: 13.5px; }
+    .carry p { margin: 4px 0 10px; font-size: 12px; color: var(--muted); }
+    .carry button { border: 0; border-radius: 9px; padding: 7px 14px; font: 600 12.5px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; margin-right: 8px; background: var(--accent); color: var(--on-accent); }
+    .carry button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border2); }
+    #todo { margin-top: 10px; }
+    .row { display: flex; align-items: center; gap: 10px; padding: 10px 6px; border-bottom: 1px solid var(--border2); }
+    .row.dragging { opacity: .4; }
+    .grip { color: var(--muted); cursor: grab; opacity: .4; user-select: none; width: 16px; text-align: center; }
+    .row:hover .grip { opacity: 1; }
+    .tick { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--muted); background: transparent; cursor: pointer; flex: none; padding: 0; position: relative; }
+    .tick:hover { border-color: var(--accent); }
+    .done .tick { background: var(--accent); border-color: var(--accent); }
+    .done .tick::after { content: '✓'; position: absolute; inset: 0; color: var(--on-accent); font-size: 12px; line-height: 16px; text-align: center; font-weight: 800; }
+    .title { flex: 1; font-size: 14px; outline: none; user-select: text; -webkit-user-select: text; word-break: break-word; }
+    .done .title { color: var(--muted); text-decoration: line-through; }
+    .tag { font-size: 10.5px; color: var(--muted); border: 1px solid var(--border2); border-radius: 6px; padding: 1px 6px; flex: none; }
+    .del { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; opacity: 0; padding: 4px 8px; border-radius: 6px; }
+    .row:hover .del { opacity: 1; }
+    .del:hover { color: #f87171; }
+    .now { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: var(--accent); color: var(--on-accent); }
+    .now small { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .75; }
+    .now b { display: block; font-size: 16px; margin: 3px 0 10px; word-break: break-word; }
+    .now button { border: 0; border-radius: 9px; padding: 8px 16px; font: 700 12.5px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; margin-right: 8px; background: var(--on-accent); color: var(--accent); }
+    .now button.ghost { background: transparent; color: var(--on-accent); border: 1px solid currentColor; opacity: .85; }
+    .row.doing .title { font-weight: 700; }
+    .play { border: 1px solid var(--border2); background: transparent; color: var(--text); border-radius: 8px; padding: 3px 10px; font: 600 11.5px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; flex: none; opacity: 0; }
+    .row:hover .play, .row.paused .play { opacity: 1; }
+    .play:hover { border-color: var(--accent); color: var(--accent); }
+    .tag.live { color: var(--accent); border-color: var(--accent); }
+    .switch { margin: 6px 0 0 36px; padding: 10px 12px; border-radius: 10px; background: var(--input); border: 1px solid var(--accent); font-size: 12.5px; }
+    .switch p { margin: 0 0 8px; }
+    .switch button { border: 0; border-radius: 8px; padding: 6px 12px; font: 600 12px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; margin-right: 6px; background: var(--accent); color: var(--on-accent); }
+    .switch button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border2); }
+    .tpl { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid var(--border2); font-size: 13.5px; }
+    .tpl .t { flex: 1; word-break: break-word; }
+    .days { display: flex; gap: 4px; }
+    .days span, .days button { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border2); font: 600 10.5px -apple-system, BlinkMacSystemFont, sans-serif; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); background: transparent; cursor: default; padding: 0; }
+    .days .on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    .days button { cursor: pointer; }
+    .addtpl { display: grid; gap: 8px; margin-top: 10px; }
+    .addtpl .add { font-size: 13px; padding: 9px 12px; }
+    .addtpl .bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .addtpl .go { border: 0; border-radius: 9px; padding: 7px 14px; font: 600 12.5px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; background: var(--accent); color: var(--on-accent); }
+    .pref { display: flex; align-items: center; gap: 12px; padding: 9px 6px; border-bottom: 1px solid var(--border2); font-size: 13.5px; }
+    .pref .t { flex: 1; }
+    .pref input[type=time], .pref input[type=number] { background: var(--input); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); padding: 4px 8px; font: 13px -apple-system, BlinkMacSystemFont, sans-serif; width: 84px; }
+    .pref input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+    .hint { color: var(--muted); font-size: 11.5px; margin: 8px 2px 0; line-height: 1.6; }
+    .empty { color: var(--muted); font-size: 13px; padding: 18px 4px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1 data-i18n="dayTask">Việc hôm nay</h1>
+    <div class="sub" id="sub"></div>
+    <input class="add" id="add" type="text" maxlength="200" data-i18n-placeholder="dayAddPlaceholder" placeholder="Thêm việc, gõ xong bấm Enter">
+    <div id="now"></div>
+    <div id="carry"></div>
+    <div id="todo"></div>
+    <div id="doneWrap"><h2 data-i18n="dayDone">Đã xong</h2><div id="done"></div></div>
+    <h2 data-i18n="dayTplHeading">Việc lặp lại</h2>
+    <div id="tpls"></div>
+    <div class="addtpl">
+      <input class="add" id="tplTitle" type="text" maxlength="200" data-i18n-placeholder="dayTplPlaceholder" placeholder="Việc lặp lại, ví dụ: Họp đầu tuần">
+      <div class="bar"><div class="days" id="tplDays"></div><button class="go" id="tplAdd" data-i18n="dayTplAdd">Thêm</button></div>
+    </div>
+    <h2 data-i18n="dayPrefHeading">Nhắc và widget</h2>
+    <div id="prefs"></div>
+    <p class="hint" data-i18n="dayShortcutHint">Phím tắt: ⌥⌘P tạm dừng / tiếp tục, ⌥⌘D Xong việc đang làm, ⌥⌘T mở trang này.</p>
+  </div>
+  <script src="i18n.js"></script>
+  <script src="theme.js"></script>
+  <script src="daytask-page.js"></script>
+</body>
+</html>
