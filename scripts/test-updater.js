@@ -171,4 +171,13 @@ test('script: dmg hỏng thì giữ nguyên app cũ', () => {
   fs.rmSync(sb.dir, { recursive: true, force: true });
 });
 
+test('mã lỗi: mã lạ hoặc lỗi thường thành U999, mã riêng giữ nguyên, ai cũng có mô tả', () => {
+  assert.equal(core.errorCode(new core.UpdError('U102')), 'U102');
+  assert.equal(core.errorCode(new core.UpdError('Uxxx')), 'U999');
+  assert.equal(core.errorCode(new Error('x')), 'U999');
+  assert.equal(core.errorCode(Object.assign(new Error('x'), { code: 'ECONNRESET' })), 'U999');
+  assert.equal(core.errorCode(null), 'U999');
+  for (const [code, text] of Object.entries(core.ERRORS)) assert.ok(/^U\d{3}$/.test(code) && text.length > 10);
+});
+
 console.log(`\n${passed} test đạt${process.exitCode ? ', CÓ TEST LỖI' : ''}`);

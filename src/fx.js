@@ -22,8 +22,8 @@
     const host = side || doc.body;
     const canvas = doc.createElement('canvas');
     canvas.className = 'noel-snow';
-    canvas.style.cssText = `position:${side ? 'absolute' : 'fixed'};left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:${side ? 0 : 40};`;
-    host.appendChild(canvas);
+    canvas.style.cssText = `position:${side ? 'absolute' : 'fixed'};left:0;top:0;width:100%;height:100%;pointer-events:none;${side ? '-webkit-app-region:no-drag;' : ''}z-index:${side ? 0 : 40};`;
+    host.insertBefore(canvas, host.firstChild); // đầu danh sách: vùng kéo cửa sổ của canvas không đè lên nút phía sau
     const ctx = canvas.getContext('2d');
     const s = { canvas, host, raf: 0, last: 0, flakes: [], w: 0, h: 0 };
     const fit = () => {

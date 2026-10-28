@@ -24,7 +24,7 @@ let probedTag = null; // tag của bản mới nhất lần hỏi trước, đ�
 let lastCheck = 0;
 let latest = null; // bản phát hành mới nhất đã parse (nếu mới hơn bản đang chạy)
 let dmgPath = null; // file dmg đã tải và kiểm hash xong
-let state = { status: 'idle', current: { version: '', build: null }, latest: null, progress: 0, error: '', canInstall: false };
+let state = { status: 'idle', current: { version: '', build: null }, latest: null, progress: 0, error: '', errorCode: '', canInstall: false };
 
 const dir = () => path.join(app.getPath('userData'), 'updates');
 
@@ -42,6 +42,16 @@ function appBundle() {
   }
 }
 
+// Lỗi hiển thị cho người dùng: câu chung chung kèm mã; chi tiết thật ghi ra nhật ký
+function fail(err) {
+  const code = core.errorCode(core.ERRORS[err && err.code] ? err : new core.UpdError(netLike(err) ? 'U101' : 'U999', String((err && err.message) || err)));
+  console.error(`[updater] ${code}: ${core.ERRORS[code]} | ${err && err.message}`);
+  return { error: `${ctx.T('updBusy')} (${code})`, errorCode: code };
+}
+
+// Lỗi từ fetch/mạng (không có mã riêng) coi là U101
+const netLike = (err) => !!err && (err.name === 'TimeoutError' || err.name === 'AbortError' || err.name === 'TypeError' || /net::|fetch/i.test(String(err.message)));
+
 function set(patch) {
   state = { ...state, ...patch, current: { version: app.getVersion(), build: ctx.buildNumber() }, canInstall: !!appBundle() };
   ctx.onState(state);
@@ -51,13 +61,26 @@ function set(patch) {
 // Trả về tag, hoặc null nếu hỏi không được.
 async function probeTag() {
   if (process.env.SW_UPDATE_URL) return null; // test với máy chủ giả: luôn đi đường API giả
-  try {
-    const res = await net.fetch('https://github.com/linhtrantm/simpleWorkapp/releases/latest', { method: 'HEAD', headers: { 'User-Agent': 'simpleWork-updater' }, signal: AbortSignal.timeout(15000) });
-    const m = /^https:\/\/github\.com\/linhtrantm\/simpleWorkapp\/releases\/tag\/([\w.\-]+)$/.exec(res.url);
-    return m ? m[1] : null;
-  } catch {
-    return null;
-  }
+  return new Promise((resolve) => {
+    // net.fetch không cho đọc địa chỉ sau khi chuyển hướng, nên dùng net.request và bắt sự kiện 'redirect'
+    const req = net.request({ method: 'HEAD', url: 'https://github.com/linhtrantm/simpleWorkapp/releases/latest', redirect: 'manual' });
+    const done = (tag) => {
+      clearTimeout(t);
+      resolve(tag);
+    };
+    const t = setTimeout(() => {
+      req.abort();
+      done(null);
+    }, 15000);
+    req.on('redirect', (_code, _method, url) => {
+      const m = /^https:\/\/github\.com\/linhtrantm\/simpleWorkapp\/releases\/tag\/([\w.\-]+)$/.exec(url);
+      req.abort();
+      done(m ? m[1] : null);
+    });
+    req.on('response', () => done(null));
+    req.on('error', () => done(null));
+    req.end();
+  });
 }
 
 // Lấy thông tin release. Tag không đổi thì dùng bản đã có; trùng tag đang chạy thì khỏi gọi API.
@@ -81,9 +104,9 @@ async function getJson(url) {
     const retry = Number(res.headers.get('retry-after'));
     const reset = Number(res.headers.get('x-ratelimit-reset'));
     blockedUntil = Date.now() + (retry ? retry * 1000 : reset ? Math.max(0, reset * 1000 - Date.now()) : 10 * 60 * 1000);
-    throw new Error('GitHub đang giới hạn lượt hỏi, thử lại sau');
+    throw new core.UpdError('U102');
   }
-  if (!res.ok) throw new Error('HTTP ' + res.status);
+  if (!res.ok) throw new core.UpdError('U103', 'HTTP ' + res.status);
   cachedJson = await res.json();
   etag = res.headers.get('etag');
   return cachedJson;
@@ -93,15 +116,15 @@ async function getJson(url) {
 const urlOk = (u) => /^https:\/\//.test(u) || (!!process.env.SW_UPDATE_URL && /^http:\/\/127\.0\.0\.1[:/]/.test(u));
 
 async function download(rel) {
-  if (!urlOk(rel.dmg.url) || !rel.sha || !urlOk(rel.sha.url)) throw new Error('release thiếu file dmg hoặc .sha256 hợp lệ');
+  if (!urlOk(rel.dmg.url) || !rel.sha || !urlOk(rel.sha.url)) throw new core.UpdError('U201');
   fs.mkdirSync(dir(), { recursive: true });
   const final = path.join(dir(), rel.dmg.name);
   const part = final + '.part';
   const want = core.parseSha(await (await net.fetch(rel.sha.url, { signal: AbortSignal.timeout(15000) })).text());
-  if (!want) throw new Error('file .sha256 không đọc được');
+  if (!want) throw new core.UpdError('U202');
   if (fs.existsSync(final) && (await sha256File(final)) === want) return final; // đã tải xong từ trước
   const res = await net.fetch(rel.dmg.url, { signal: AbortSignal.timeout(30 * 60 * 1000) });
-  if (!res.ok || !res.body) throw new Error('tải dmg: HTTP ' + res.status);
+  if (!res.ok || !res.body) throw new core.UpdError('U203', 'HTTP ' + res.status);
   const total = Number(res.headers.get('content-length')) || rel.dmg.size || 0;
   const hash = crypto.createHash('sha256');
   const out = fs.createWriteStream(part);
@@ -122,11 +145,11 @@ async function download(rel) {
   } catch (err) {
     out.destroy();
     fs.rmSync(part, { force: true });
-    throw err;
+    throw err.code && core.ERRORS[err.code] ? err : new core.UpdError('U204', String(err.message || err));
   }
   if (hash.digest('hex') !== want) {
     fs.rmSync(part, { force: true });
-    throw new Error('SHA-256 không khớp, bỏ file đã tải');
+    throw new core.UpdError('U205');
   }
   fs.renameSync(part, final);
   return final;
@@ -154,7 +177,7 @@ async function check({ manual = false } = {}) {
   // Đang tải hoặc đã tải xong thì các lần hỏi nền không được đè trạng thái đó
   const holding = () => state.status === 'downloading' || state.status === 'ready';
   try {
-    if (manual && !holding()) set({ status: 'checking', error: '' });
+    if (manual && !holding()) set({ status: 'checking', error: '', errorCode: '' });
     const fetched = await fetchRelease();
     const rel = fetched && fetched.skip ? null : core.parseRelease(fetched);
     if (!rel || !core.isNewer({ version: app.getVersion(), build: ctx.buildNumber() }, rel)) {
@@ -168,7 +191,7 @@ async function check({ manual = false } = {}) {
     latest = rel;
     dmgPath = null;
     const info = { version: rel.version, build: rel.build, size: rel.dmg.size, notes: rel.notes, lines: core.cleanNotes(rel.notes), url: rel.url };
-    set({ status: 'available', latest: info, progress: 0, error: '' });
+    set({ status: 'available', latest: info, progress: 0, error: '', errorCode: '' });
     // Popup hiện sau khi trạng thái đã có đủ nội dung, để vẽ xong ngay. Đã bấm "Để sau" cho bản này thì không hiện lại, trừ khi tự bấm Kiểm tra.
     if (manual || (!popupShown.has(rel.version) && ctx.settings().updateDismissed !== rel.version)) {
       popupShown.add(rel.version);
@@ -176,7 +199,7 @@ async function check({ manual = false } = {}) {
     }
   } catch (err) {
     // lỗi mạng khi tự kiểm tra thì im lặng, chỉ báo khi người dùng chủ động bấm
-    if (manual && !holding()) set({ status: 'error', error: String(err.message || err) });
+    if (manual && !holding()) set({ status: 'error', ...fail(err) });
     else if (state.status === 'checking') set({ status: state.latest ? 'available' : 'idle' });
   } finally {
     busy = false;
@@ -189,13 +212,13 @@ async function downloadLatest() {
   if (!latest || !appBundle() || state.status === 'downloading' || state.status === 'ready') return state;
   const rel = latest;
   try {
-    set({ status: 'downloading', progress: 0, error: '' });
+    set({ status: 'downloading', progress: 0, error: '', errorCode: '' });
     dmgPath = await download(rel);
     cleanup(path.basename(dmgPath));
     set({ status: 'ready', progress: 100 });
   } catch (err) {
     dmgPath = null;
-    set({ status: 'error', error: String(err.message || err) }); // giữ latest để popup hiện nút "Tải lại"
+    set({ status: 'error', ...fail(err) }); // giữ latest để popup hiện nút "Tải lại"
   }
   return state;
 }

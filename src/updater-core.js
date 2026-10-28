@@ -108,4 +108,27 @@ echo "xong"
 `;
 }
 
-module.exports = { DMG_RE, cleanNotes, parseRelease, isNewer, parseSha, installScript };
+// Bộ mã lỗi riêng của app. Người dùng chỉ thấy "Hệ thống đang bận" kèm mã; ý nghĩa thật nằm ở đây để tra khi cần hỗ trợ.
+const ERRORS = {
+  U101: 'Không kết nối được máy chủ phát hành (mạng hỏng hoặc quá thời gian chờ)',
+  U102: 'Máy chủ phát hành từ chối vì quá nhiều lượt hỏi (HTTP 403/429), app tự nghỉ rồi hỏi lại',
+  U103: 'Máy chủ phát hành trả mã HTTP lạ khi lấy thông tin bản mới',
+  U201: 'Bản phát hành thiếu file dmg hoặc file .sha256 hợp lệ',
+  U202: 'File .sha256 không đọc được',
+  U203: 'Máy chủ trả mã HTTP lạ khi tải dmg',
+  U204: 'Đang tải dmg thì đứt kết nối hoặc không ghi được file',
+  U205: 'SHA-256 của dmg không khớp, file đã bị bỏ',
+  U999: 'Lỗi không xác định'
+};
+
+class UpdError extends Error {
+  constructor(code, detail) {
+    super(detail || ERRORS[code] || ERRORS.U999);
+    this.code = ERRORS[code] ? code : 'U999';
+  }
+}
+
+// Mã lỗi của một lỗi bất kỳ (lỗi không có mã thì là U999)
+const errorCode = (err) => (err && ERRORS[err.code] ? err.code : 'U999');
+
+module.exports = { ERRORS, UpdError, errorCode, DMG_RE, cleanNotes, parseRelease, isNewer, parseSha, installScript };

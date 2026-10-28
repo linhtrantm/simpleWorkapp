@@ -2,7 +2,7 @@
 
 App desktop macOS (Electron) gom Zalo, WhatsApp, Teams, Messenger, Claude và các web app tuỳ ý vào một cửa sổ. Mỗi app có phiên đăng nhập riêng, giữ nguyên qua các lần mở và các lần cập nhật.
 
-Phiên bản hiện tại: **1.7.2** (macOS, Apple Silicon).
+Phiên bản hiện tại: **1.7.3** (macOS, Apple Silicon).
 
 ## Tính năng
 
@@ -33,7 +33,7 @@ Nếu chạy trong terminal của VSCode mà app crash ngay, thử `env -u ELECT
 npm run dist
 ```
 
-Kết quả: `dist/simpleWork-1.7.2-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
+Kết quả: `dist/simpleWork-1.7.3-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
 
 App được ký **ad-hoc**, chưa có Apple Developer ID nên chưa notarize. Ký ad-hoc là điều kiện để macOS đưa app vào mục Thông báo. Lần đầu mở nếu bị Gatekeeper chặn: chuột phải vào app > Open, hoặc `xattr -cr /Applications/simpleWork.app`.
 
@@ -44,6 +44,8 @@ App được ký **ad-hoc**, chưa có Apple Developer ID nên chưa notarize. K
 3. Script tạo release `v<version>-build<N>` kèm dmg và file `.sha256`. Các máy đang chạy từ 1.6.0 trở lên sẽ tự thấy.
 
 Repo phải công khai (app gọi API GitHub không cần token). App ký ad-hoc, không có chữ ký Apple, nên không dùng được `electron-updater`; updater tự viết (`src/updater*.js`) và độ tin cậy dựa vào HTTPS, tài khoản GitHub của người phát hành và SHA-256. Bản trước 1.6.0 không tự cập nhật được, phải cài tay một lần. Test: `npm test`.
+
+**Mã lỗi cập nhật.** Người dùng chỉ thấy "Hệ thống đang bận, xin thử lại sau (U102)"; không lộ nguồn phát hành. Bảng mã nằm ở `ERRORS` trong `src/updater-core.js`: U101 mạng/quá thời gian, U102 máy chủ giới hạn lượt, U103 HTTP lạ khi lấy thông tin, U201 release thiếu dmg/sha, U202 file sha không đọc được, U203 HTTP lạ khi tải dmg, U204 đứt giữa chừng khi tải, U205 SHA-256 không khớp, U999 không xác định. Chi tiết thật ghi vào nhật ký (`[updater] Uxxx: ...`).
 
 ## Đánh số phiên bản
 
