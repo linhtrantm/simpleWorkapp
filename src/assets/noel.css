@@ -1,0 +1,29 @@
+/* Chủ đề Noel: kem là nền, xanh thông là màu phụ (thanh bên), đỏ là màu nhấn (quy tắc 60-30-10 của theme.md).
+   Mọi quy tắc nằm dưới html[data-look='noel'] nên các chủ đề khác không bị ảnh hưởng. */
+@keyframes noel-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+html[data-look='noel'] .noel-garland { position: fixed; top: 0; left: 0; right: 0; height: 44px; z-index: 60; pointer-events: none; overflow: hidden; }
+html[data-look='noel'] .noel-garland .b { animation: noel-twinkle 1.8s ease-in-out infinite; }
+
+/* Họa tiết nền nhẹ (nhành ô rô và hạt quả đỏ), màu cố định nên chỉ dùng cho chủ đề đặc biệt, độ mờ thấp */
+html[data-look='noel'] body:not(:has(#side)) { background: transparent; }
+html[data-look='noel'] body:not(:has(#side))::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .5;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><g fill='%232e7d32'><path d='M20 24c6-8 14-6 14 2-8 2-12 2-14-2z'/><path d='M20 24c-6-8-14-6-14 2 8 2 12 2 14-2z'/></g><circle cx='20' cy='24' r='3' fill='%23c62828'/><circle cx='70' cy='72' r='1.6' fill='%23ffffff'/><circle cx='80' cy='20' r='1.2' fill='%23ffffff'/><circle cx='44' cy='64' r='1.2' fill='%23ffffff'/></svg>");
+}
+
+/* Tuyết đọng trên mép các thẻ */
+html[data-look='noel'] .now, html[data-look='noel'] .carry, html[data-look='noel'] .list, html[data-look='noel'] .notes, html[data-look='noel'] #card { position: relative; }
+html[data-look='noel'] .now::after, html[data-look='noel'] .carry::after, html[data-look='noel'] .list::after, html[data-look='noel'] .notes::after {
+  content: ''; position: absolute; left: 16px; right: 16px; top: 0; height: 7px; pointer-events: none;
+  background: #fff; border-radius: 0 0 9px 9px / 0 0 7px 7px; opacity: .92; box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+}
+
+/* Thanh tiến độ sọc kẹo, việc xong màu xanh thông */
+html[data-look='noel'] .bar i { background: repeating-linear-gradient(45deg, #c62828 0 8px, #f7f1e3 8px 16px); }
+html[data-look='noel'] .done .tick { background: #2e7d32; border-color: #2e7d32; }
+html[data-look='noel'] .done .tick::after { color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-look='noel'] .noel-garland .b { animation: none; }
+}

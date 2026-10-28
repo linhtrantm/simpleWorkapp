@@ -9,8 +9,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 window.simpleWork.onHandoff(({ name, icon, art, tile, gradient, letter, color, lang, look }) => {
-  swTheme.applyPalette(look && look.palette, document);
-  swTheme.apply(document);
+  swTheme.applyLook(look, document);
   i18n.apply(lang, document);
   ico.replaceChildren(swIcon.node({ icon, art, tile, gradient, letter, color, name }));
   title.textContent = i18n.t(lang, 'handoffTitle', { name });

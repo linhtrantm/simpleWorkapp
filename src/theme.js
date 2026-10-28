@@ -4,47 +4,58 @@
   // Màu nhấn cố định (cam). Đã bỏ tuỳ chọn đổi màu nhấn.
   const ACCENT = '#f58a1f';
 
+  // accent: màu nhấn riêng của chủ đề (nút chính, vạch chọn, tag đang làm).
   // palette: bg = nền trang, card = nền thẻ, rule = viền, ink = chữ chính, soft = chữ phụ (đặt token theo vai trò, theo theme.md).
   // frame.css: nền thanh bên (đặc hoặc dải màu); frame.base: màu đại diện để chọn chữ sáng/tối và tô nền cửa sổ.
   // Chọn một chủ đề thì ghi đè cả sáng/tối của hệ thống. Nội dung các trang web (Zalo, Teams...) không đổi.
   const THEMES = {
     paper: {
+      accent: '#3a4462',
       palette: { dark: false, bg: '#f4f1ea', card: '#fffdf8', rule: '#e3dccd', ink: '#1d2230', soft: '#5d6272' },
       frame: { css: 'linear-gradient(180deg, #f3ead8, #dccaa6)', base: '#e8d9bc' }
     },
     pink: {
+      accent: '#d6457f',
       palette: { dark: false, bg: '#fbe9f1', card: '#fffafc', rule: '#f1cddd', ink: '#46203a', soft: '#85546f' },
-      frame: { css: 'linear-gradient(180deg, #9c1c47, #b8315f)', base: '#aa2753' }
+      frame: { css: 'linear-gradient(180deg, #fbd5e4, #f4b8d1)', base: '#f7c6da' }
     },
     mint: {
+      accent: '#2e8f62',
       palette: { dark: false, bg: '#e6f4ec', card: '#f7fcf9', rule: '#c5e3d1', ink: '#14352a', soft: '#4d7263' },
-      frame: { css: 'linear-gradient(180deg, #14442e, #2a734f)', base: '#1f5a3e' }
+      frame: { css: 'linear-gradient(180deg, #d3f0e1, #aee0c8)', base: '#c0e8d4' }
     },
     sky: {
+      accent: '#2b7de0',
       palette: { dark: false, bg: '#e8f1fb', card: '#f9fbff', rule: '#c8dcf2', ink: '#15304f', soft: '#4a6788' },
-      frame: { css: 'linear-gradient(180deg, #0e4d6e, #16698a)', base: '#10597b' }
+      frame: { css: 'linear-gradient(180deg, #d4e6fa, #aecff2)', base: '#c1d9f6' }
     },
     sunset: {
+      accent: '#d9610a',
       palette: { dark: false, bg: '#fbeee3', card: '#fffaf5', rule: '#f2d5bd', ink: '#4a2410', soft: '#8a5b3d' },
-      frame: { css: 'linear-gradient(180deg, #a8330a, #b94d09)', base: '#b04009' }
+      frame: { css: 'linear-gradient(180deg, #fde0c9, #f9c39c)', base: '#fad2b0' }
     },
     grape: {
+      accent: '#7a48d1',
       palette: { dark: false, bg: '#efe9fb', card: '#fbf9ff', rule: '#d9ccf2', ink: '#2a1650', soft: '#645488' },
-      frame: { css: 'linear-gradient(180deg, #3b1d6e, #6d3dbb)', base: '#52289a' }
+      frame: { css: 'linear-gradient(180deg, #e3d7f9, #cbb4f0)', base: '#d7c6f4' }
     },
     noel: {
+      accent: '#b3261e',
       palette: { dark: false, bg: '#ecd9bd', card: '#fbf3e4', rule: '#d9c19a', ink: '#3a1d12', soft: '#7a5640' },
-      frame: { css: 'linear-gradient(180deg, #7a1410, #a8231b)', base: '#8f1b15' }
+      frame: { css: 'linear-gradient(180deg, #0d4a2b, #1c6b3f)', base: '#14572f' } // xanh thông: màu phụ, đỏ là màu nhấn, kem là nền (quy tắc 60-30-10)
     },
     night: {
+      accent: '#8e9bff',
       palette: { dark: true, bg: '#14161f', card: '#1e2130', rule: '#2f3349', ink: '#e8eaf3', soft: '#9aa0b8' },
       frame: { css: 'linear-gradient(180deg, #0c0e15, #181b28)', base: '#11131c' }
     },
     aurora: {
+      accent: '#3fc1c9',
       palette: { dark: true, bg: '#0f1a22', card: '#172733', rule: '#26404f', ink: '#e6f3f6', soft: '#93b3bf' },
       frame: { css: 'linear-gradient(165deg, #0f2027, #1f6f80 55%, #6a45c4)', base: '#1f5266' }
     },
     graphite: {
+      accent: '#f58a1f',
       palette: { dark: true, bg: '#1b1d20', card: '#25282c', rule: '#3a3e44', ink: '#eceff3', soft: '#9ba2ac' },
       frame: { css: 'linear-gradient(180deg, #212529, #495057)', base: '#33383d' }
     }
@@ -106,11 +117,17 @@
   function deriveCustom(hex) {
     const [h, s0] = hexToHsl(hex);
     const s = Math.max(30, Math.min(s0, 75));
+    const card = hslToHex(h, s, 99);
+    // Màu nhấn: cùng sắc, tối dần cho tới khi nổi lên được trên nền thẻ (sắc vàng vốn rất sáng nên phải tối hơn)
+    let l = 46;
+    let accent = hslToHex(h, Math.max(s, 45), l);
+    while (l > 20 && (luminance(card) + 0.05) / (luminance(accent) + 0.05) < 3) accent = hslToHex(h, Math.max(s, 45), (l -= 2));
     return {
+      accent,
       palette: {
         dark: false,
         bg: hslToHex(h, s, 95),
-        card: hslToHex(h, s, 99),
+        card,
         rule: hslToHex(h, Math.round(s * 0.8), 86),
         ink: hslToHex(h, Math.min(s + 10, 80), 15),
         soft: hslToHex(h, Math.round(s * 0.5), 30)
@@ -123,7 +140,7 @@
   function resolveTheme(id, custom) {
     const t = id === 'custom' ? (isHex(custom) ? deriveCustom(custom) : null) : THEMES[id];
     if (!t) return null;
-    return { palette: { ...t.palette }, frame: { ...t.frame, light: isLight(t.frame.base) } };
+    return { id, accent: t.accent, palette: { ...t.palette }, frame: { ...t.frame, light: isLight(t.frame.base) } };
   }
 
   // Chủ đề = bảng màu + màu thanh bên gộp một. Tên cũ (palette, frame) đổi sang tên mới để người dùng cũ không mất lựa chọn.
@@ -174,11 +191,20 @@
     style.setProperty('color-scheme', p.dark ? 'dark' : 'light');
   }
 
-  function apply(doc) {
+  function apply(doc, accent = ACCENT) {
     const style = doc.documentElement.style;
-    style.setProperty('--accent', ACCENT);
-    style.setProperty('--accent2', ACCENT); // phẳng: không dùng dải màu
-    style.setProperty('--on-accent', isLight(ACCENT) ? '#1a1004' : '#ffffff');
+    style.setProperty('--accent', accent);
+    style.setProperty('--accent2', accent); // phẳng: không dùng dải màu
+    style.setProperty('--on-accent', isLight(accent) ? '#1a1004' : '#ffffff');
+  }
+
+  // Áp cả chủ đề lên trang: màu nhấn, bảng màu nền, thuộc tính data-look (để CSS riêng của chủ đề như Noel bám vào), và hiệu ứng nếu có.
+  // look = null là mặc định theo hệ thống.
+  function applyLook(look, doc) {
+    apply(doc, (look && look.accent) || ACCENT);
+    applyPalette(look && look.palette, doc);
+    doc.documentElement.dataset.look = look ? look.id : 'system';
+    if (root.swFx) root.swFx.sync(look ? look.id : 'system', doc);
   }
 
   // Áp màu thanh bên (phần tử #side) của trang chính
@@ -204,7 +230,7 @@
     side.style.setProperty('--brand', ink);
   }
 
-  const api = { THEMES, THEME_IDS, isHex, hslToHex, hexToHsl, luminance, isLight, deriveCustom, resolveTheme, migrateLook, applyPalette, apply, applyFrame };
+  const api = { THEMES, THEME_IDS, isHex, hslToHex, hexToHsl, luminance, isLight, deriveCustom, resolveTheme, migrateLook, applyPalette, apply, applyLook, applyFrame };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.swTheme = api;
 })(this);

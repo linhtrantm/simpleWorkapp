@@ -4,8 +4,7 @@
   try {
     const saved = JSON.parse(localStorage.getItem('sw.look') || 'null');
     if (!saved) return;
-    swTheme.applyPalette(saved.look && saved.look.palette, document);
-    swTheme.apply(document);
+    swTheme.applyLook(saved.look, document);
     swTheme.applyFrame(saved.look && saved.look.frame, document);
   } catch {}
 })();

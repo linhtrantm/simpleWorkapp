@@ -7,8 +7,7 @@ const T = (k, v) => i18n.t(lang, k, v);
 function render({ update: u, lang: l, look }) {
   last = u;
   lang = l || 'vi';
-  swTheme.applyPalette(look && look.palette, document);
-  swTheme.apply(document);
+  swTheme.applyLook(look, document);
   i18n.apply(lang, document);
   if (!u.latest) return;
   const cur = u.current.version + (u.current.build ? ` (${u.current.build})` : '');
@@ -33,35 +32,24 @@ function render({ update: u, lang: l, look }) {
   const bar = $('bar');
   bar.hidden = u.status !== 'downloading';
   $('fill').style.width = u.progress + '%';
-  let status = '';
-  if (u.status === 'downloading') {
-    status = T('updDownloading', { v: u.latest.version, pct: u.progress });
-    go.textContent = T('updLoading');
-    go.disabled = true;
-    go.dataset.act = '';
-  } else if (u.status === 'ready') {
-    status = T('updPopupReady');
-    go.textContent = T('updInstall');
-    go.disabled = false;
-    go.dataset.act = 'install';
-  } else if (u.status === 'error') {
-    status = T('updError') + ': ' + u.error;
-    go.textContent = T('updOpenPage');
-    go.disabled = !u.latest.url;
-    go.dataset.act = 'page';
-  } else {
-    // chạy ngoài thư mục Applications: không tự cài được, chỉ mở trang tải
-    status = T('updAvailableManual', { v: u.latest.version });
-    go.textContent = T('updOpenPage');
-    go.disabled = !u.latest.url;
-    go.dataset.act = 'page';
-  }
-  $('status').textContent = status;
+  const set = (text, label, act, disabled) => {
+    $('status').textContent = text;
+    go.textContent = label;
+    go.dataset.act = act;
+    go.disabled = disabled;
+  };
+  const mb = u.latest.size ? Math.round(u.latest.size / 1048576) : 0;
+  if (u.status === 'downloading') set(T('updDownloading', { v: u.latest.version, pct: u.progress }), T('updLoading'), '', true);
+  else if (u.status === 'ready') set(T('updPopupReady'), T('updInstall'), 'install', false);
+  else if (!u.canInstall) set(T('updAvailableManual', { v: u.latest.version }), T('updOpenPage'), 'page', !u.latest.url); // ngoài Applications: không tự cài được
+  else if (u.status === 'error') set(T('updError') + ': ' + u.error, T('updRetry'), 'download', false);
+  else set('', mb ? T('updDownloadSize', { mb }) : T('updDownload'), 'download', false);
 }
 
 $('go').addEventListener('click', () => {
   const act = $('go').dataset.act;
-  if (act === 'install') window.simpleWork.updateInstall();
+  if (act === 'download') window.simpleWork.updateDownload();
+  else if (act === 'install') window.simpleWork.updateInstall();
   else if (act === 'page') window.simpleWork.updateOpenPage();
 });
 $('later').addEventListener('click', () => window.simpleWork.updateLater());
@@ -69,3 +57,4 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') window.simpleWork.updateLater();
 });
 window.simpleWork.onUpdatePopup(render);
+window.simpleWork.getUpdate().then(render); // vẽ ngay lúc mở, không đợi tin đẩy

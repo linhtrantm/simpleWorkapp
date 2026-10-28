@@ -593,10 +593,9 @@ async function runPerfDiagnostics(seconds = 10) {
 
 // ---- Cửa sổ About + menu của app ----
 // Popup "Có bản cập nhật mới" kèm release note; cửa sổ riêng nên hiện được cả khi cửa sổ chính đang ẩn
+const updatePopupPayload = () => ({ update: updater.getState(), lang: settings.lang, look: lookInfo() });
 function sendUpdatePopup() {
-  if (updatePopup && !updatePopup.isDestroyed() && !updatePopup.webContents.isLoading()) {
-    updatePopup.webContents.send('update:popup', { update: updater.getState(), lang: settings.lang, look: lookInfo() });
-  }
+  if (updatePopup && !updatePopup.isDestroyed()) updatePopup.webContents.send('update:popup', updatePopupPayload());
 }
 
 function showUpdatePopup() {
@@ -1118,6 +1117,7 @@ ipcMain.handle('daytask:pause', dayReply(() => dayStore.pause()));
 ipcMain.handle('daytask:done', dayReply(dayStore.done));
 ipcMain.handle('daytask:carry', dayReply(dayStore.carry));
 ipcMain.handle('daytask:skip-carry', dayReply(dayStore.skipCarry));
+ipcMain.handle('update:get', updatePopupPayload); // popup tự lấy trạng thái khi vừa mở, khỏi chờ tin đẩy
 ipcMain.on('update:check', () => updater.check({ manual: true }));
 ipcMain.on('update:later', () => {
   if (updatePopup && !updatePopup.isDestroyed()) updatePopup.close(); // sự kiện close tự ghi "Để sau"
@@ -1126,6 +1126,7 @@ ipcMain.on('update:open-page', () => {
   const u = updater.getState().latest;
   if (u && /^https:\/\//.test(u.url || '')) shell.openExternal(u.url);
 });
+ipcMain.on('update:download', () => updater.download());
 ipcMain.on('update:install', () => updater.install());
 ipcMain.on('settings:set-auto-update', (_e, on) => {
   settings.autoCheckUpdates = !!on;

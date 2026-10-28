@@ -13,7 +13,8 @@ const updBtn = document.getElementById('upd-btn');
 const updAuto = document.getElementById('upd-auto');
 updAuto.addEventListener('change', () => window.simpleWork.setAutoUpdate(updAuto.checked));
 updBtn.addEventListener('click', () => {
-  if (updBtn.dataset.act === 'install') window.simpleWork.updateInstall();
+  if (updBtn.dataset.act === 'download') window.simpleWork.updateDownload();
+  else if (updBtn.dataset.act === 'install') window.simpleWork.updateInstall();
   else window.simpleWork.updateCheck();
 });
 const notifSound = document.getElementById('notif-sound');
@@ -214,10 +215,20 @@ function renderUpdate(u, auto) {
     btn = i18n.t(lang, 'updInstall');
     act = 'install';
   } else if (u.status === 'available') {
-    text = i18n.t(lang, 'updAvailableManual', { v });
+    if (u.canInstall) {
+      text = i18n.t(lang, 'updAvailable', { v });
+      btn = i18n.t(lang, 'updDownload');
+      act = 'download';
+    } else {
+      text = i18n.t(lang, 'updAvailableManual', { v });
+    }
   } else if (u.status === 'error') {
     text = i18n.t(lang, 'updError');
     sub = u.error;
+    if (u.latest && u.canInstall) {
+      btn = i18n.t(lang, 'updRetry');
+      act = 'download';
+    }
   } else if (u.status === 'idle') {
     text = i18n.t(lang, 'updIdle', { v: cur });
   }
@@ -235,8 +246,7 @@ function render({ apps, version, iconLevel, lang: newLang, theme, look, lookCust
   lang = newLang || 'vi';
   i18n.apply(lang, document);
   const info = swTheme.resolveTheme(look, lookCustom);
-  swTheme.applyPalette(info && info.palette, document);
-  swTheme.apply(document);
+  swTheme.applyLook(info, document);
   lastCustom.look = lookCustom || lastCustom.look;
   if (looksLang !== lang) {
     looksLang = lang;

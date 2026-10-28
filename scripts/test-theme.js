@@ -129,6 +129,49 @@ test('chủ đề tự pha: thanh bên lấy đúng màu chọn, chữ chọn b�
   }
 });
 
+test('màu nhấn của từng chủ đề: chữ trên nút >= 4.3 và nút nổi lên được so với nền thẻ (>= 3)', () => {
+  for (const [id, t] of Object.entries(theme.THEMES)) {
+    assert.ok(theme.isHex(t.accent), `${id}.accent`);
+    const text = theme.isLight(t.accent) ? '#1a1004' : '#ffffff';
+    assert.ok(ratio(text, t.accent) >= 4.3, `${id}: chữ trên nút ${ratio(text, t.accent).toFixed(2)}`);
+    assert.ok(ratio(t.accent, t.palette.card) >= 3, `${id}: nút trên nền thẻ ${ratio(t.accent, t.palette.card).toFixed(2)}`);
+    assert.equal(theme.resolveTheme(id).accent, t.accent);
+  }
+});
+
+test('chủ đề tự pha: màu nhấn suy ra từ màu chọn luôn đọc được và nổi lên được trên nền thẻ', () => {
+  for (let h = 0; h < 360; h += 6) {
+    for (const s of [0, 30, 60, 100]) {
+      const c = theme.hslToHex(h, s, 50);
+      const r = theme.resolveTheme('custom', c);
+      const text = theme.isLight(r.accent) ? '#1a1004' : '#ffffff';
+      assert.ok(ratio(text, r.accent) >= 4.3, `${c}: chữ ${ratio(text, r.accent).toFixed(2)}`);
+      assert.ok(ratio(r.accent, r.palette.card) >= 3, `${c}: nút trên thẻ ${ratio(r.accent, r.palette.card).toFixed(2)}`);
+    }
+  }
+});
+
+test('Noel theo quy tắc 60-30-10: nền kem, thanh bên xanh lá, màu nhấn đỏ', () => {
+  const n = theme.resolveTheme('noel');
+  assert.equal(n.accent, '#b3261e');
+  assert.equal(theme.isLight(n.palette.bg), true);
+  const [r, g, b] = [n.frame.base].map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)))[0];
+  assert.ok(g > r && g > b, 'thanh bên của Noel phải thiên xanh lá');
+});
+
+test('applyLook: ghi màu nhấn của chủ đề, data-look, gỡ về mặc định khi null', () => {
+  const props = new Map();
+  const doc = { documentElement: { dataset: {}, style: { setProperty: (k, v) => props.set(k, v), removeProperty: (k) => props.delete(k) } } };
+  theme.applyLook(theme.resolveTheme('noel'), doc);
+  assert.equal(props.get('--accent'), '#b3261e');
+  assert.equal(doc.documentElement.dataset.look, 'noel');
+  assert.equal(props.get('--bg'), theme.THEMES.noel.palette.bg);
+  theme.applyLook(null, doc);
+  assert.equal(props.get('--accent'), '#f58a1f');
+  assert.equal(doc.documentElement.dataset.look, 'system');
+  assert.equal(props.has('--bg'), false);
+});
+
 test('applyPalette: ghi biến CSS khi có bảng màu, gỡ sạch khi null', () => {
   const props = new Map();
   const doc = { documentElement: { style: { setProperty: (k, v) => props.set(k, v), removeProperty: (k) => props.delete(k) } } };

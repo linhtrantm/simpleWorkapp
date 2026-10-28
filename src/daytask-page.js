@@ -294,8 +294,7 @@ async function refresh() {
   const v = await window.dayTask.view(selDate || undefined);
   lang = v.lang || 'vi';
   i18n.apply(lang, document);
-  swTheme.applyPalette(v.look && v.look.palette, document);
-  swTheme.apply(document);
+  swTheme.applyLook(v.look, document);
   if (selDate && v.date !== selDate) selDate = v.date === v.today ? null : v.date; // ngày đã qua (sang ngày mới) thì về hôm nay
   state = v;
   render();
