@@ -11,13 +11,13 @@
   // Theme cho "khung" (thanh bên), kiểu Outlook: chỉ tô viền ứng dụng, phần nội dung giữ nguyên.
   // css: nền thanh bên (đặc hoặc dải màu); base: màu đại diện để chọn chữ sáng/tối và tô nền cửa sổ.
   const FRAMES = {
-    ocean: { css: 'linear-gradient(180deg, #0e4d6e, #1a86a8)', base: '#135f82' },
-    forest: { css: 'linear-gradient(180deg, #14442e, #2f8159)', base: '#1f5f42' },
-    sunset: { css: 'linear-gradient(180deg, #c2410c, #f08c00)', base: '#d9610a' },
-    grape: { css: 'linear-gradient(180deg, #3b1d6e, #7a48d1)', base: '#552a9c' },
-    rose: { css: 'linear-gradient(180deg, #a61e4d, #e8588a)', base: '#c53a6c' },
+    ocean: { css: 'linear-gradient(180deg, #0e4d6e, #16698a)', base: '#10597b' },
+    forest: { css: 'linear-gradient(180deg, #14442e, #2a734f)', base: '#1f5a3e' },
+    sunset: { css: 'linear-gradient(180deg, #a8330a, #b94d09)', base: '#b04009' },
+    grape: { css: 'linear-gradient(180deg, #3b1d6e, #6d3dbb)', base: '#52289a' },
+    rose: { css: 'linear-gradient(180deg, #9c1c47, #b8315f)', base: '#aa2753' },
     graphite: { css: 'linear-gradient(180deg, #212529, #495057)', base: '#33383d' },
-    aurora: { css: 'linear-gradient(165deg, #0f2027, #1f7a8c 55%, #7a4fd6)', base: '#1f5266' },
+    aurora: { css: 'linear-gradient(165deg, #0f2027, #1f6f80 55%, #6a45c4)', base: '#1f5266' },
     sand: { css: 'linear-gradient(180deg, #f3ead8, #dccaa6)', base: '#e8d9bc' }
   };
   const FRAME_IDS = ['none', 'accent', 'custom', ...Object.keys(FRAMES)];
@@ -69,8 +69,9 @@
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   }
 
-  // 0.179 là điểm chữ đen và chữ trắng có độ tương phản bằng nhau; trên mức này chữ đen dễ đọc hơn
-const isLight = (hex) => luminance(hex) > 0.179;
+  // 0.1925 là điểm chữ tối (#1a1004) và chữ trắng có độ tương phản bằng nhau; trên mức này chữ tối dễ đọc hơn.
+// Ở giữa dải (màu trung bình) không chữ nào vượt quá ~4.3:1, đó là giới hạn của phép đo chứ không phải lỗi chọn.
+const isLight = (hex) => luminance(hex) > 0.1925;
 
   // accent: tên màu có sẵn hoặc mã '#rrggbb' (màu tự pha)
   function accentHex(accent) {
@@ -113,7 +114,7 @@ const isLight = (hex) => luminance(hex) > 0.179;
     if (!side) return;
     const ink = frame.light ? '#1c1c1e' : '#ffffff';
     side.style.setProperty('--text', ink);
-    side.style.setProperty('--muted', frame.light ? 'rgba(28,28,30,.62)' : 'rgba(255,255,255,.72)');
+    side.style.setProperty('--muted', frame.light ? 'rgba(28,28,30,.72)' : 'rgba(255,255,255,.82)');
     side.style.setProperty('--hover', frame.light ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.14)');
     side.style.setProperty('--pill-bg', frame.light ? 'rgba(0,0,0,.1)' : 'rgba(255,255,255,.22)');
     side.style.setProperty('--accent', ink); // vạch chọn và tên hiệu hợp với khung, tránh trùng màu nền

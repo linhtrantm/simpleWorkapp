@@ -106,6 +106,9 @@ function render(state) {
   i18n.apply(lang, document);
   swTheme.apply(state.accent, document);
   swTheme.applyFrame(state.frame, document);
+  try {
+    localStorage.setItem('sw.look', JSON.stringify({ accent: state.accent, frame: state.frame })); // để lần mở sau áp ngay, khỏi chớp
+  } catch {}
 
   const root = document.documentElement.style;
   root.setProperty('--side-w', ui.width + 'px');

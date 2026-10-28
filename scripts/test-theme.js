@@ -68,4 +68,42 @@ test('mọi preset khung có đủ css và base hợp lệ', () => {
   }
 });
 
+// Quy tắc đọc được: chữ trên khung phải đủ tương phản ở MỌI điểm của dải màu (WCAG: chữ chính >= 4.5, chữ phụ >= 3.5).
+// Chữ phụ trên thanh bên là chữ trắng 82% (khung tối) hoặc chữ đen 72% (khung sáng), pha vào màu nền.
+const ratio = (a, b) => {
+  const x = theme.luminance(a);
+  const y = theme.luminance(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+};
+const blend = (fg, bg, a) => {
+  const f = parseInt(fg.slice(1), 16);
+  const g = parseInt(bg.slice(1), 16);
+  const c = (i) => Math.round(((f >> i) & 255) * a + ((g >> i) & 255) * (1 - a));
+  return '#' + [16, 8, 0].map((i) => c(i).toString(16).padStart(2, '0')).join('');
+};
+
+test('mọi theme khung: chữ chính >= 4.5 và chữ phụ >= 3.5 ở từng điểm màu của dải', () => {
+  for (const [id, f] of Object.entries(theme.FRAMES)) {
+    const light = theme.resolveFrame(id).light;
+    const ink = light ? '#1c1c1e' : '#ffffff';
+    for (const stop of f.css.match(/#[0-9a-f]{6}/gi)) {
+      assert.ok(ratio(ink, stop) >= 4.5, `${id} ${stop}: chữ chính ${ratio(ink, stop).toFixed(2)}`);
+      const muted = blend(ink, stop, light ? 0.72 : 0.82);
+      assert.ok(ratio(muted, stop) >= 3.5, `${id} ${stop}: chữ phụ ${ratio(muted, stop).toFixed(2)}`);
+    }
+  }
+});
+
+test('màu nhấn tự pha: chữ trên nút luôn chọn bên tương phản hơn (>= 4.3, mức tối đa ở màu trung bình)', () => {
+  for (let h = 0; h < 360; h += 15) {
+    for (const s of [0, 40, 80, 100]) {
+      for (const l of [5, 20, 35, 50, 65, 80, 95]) {
+        const c = theme.hslToHex(h, s, l);
+        const text = theme.isLight(c) ? '#1a1004' : '#ffffff';
+        assert.ok(ratio(text, c) >= 4.3, `${c}: ${ratio(text, c).toFixed(2)}`);
+      }
+    }
+  }
+});
+
 console.log(`\n${passed} test đạt${process.exitCode ? ', CÓ TEST LỖI' : ''}`);

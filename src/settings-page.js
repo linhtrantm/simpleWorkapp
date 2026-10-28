@@ -229,7 +229,7 @@ function renderUpdate(u, auto) {
     disabled = true;
   } else if (u.status === 'downloading') {
     text = i18n.t(lang, 'updDownloading', { v, pct: u.progress });
-    btn = i18n.t(lang, 'updChecking');
+    btn = i18n.t(lang, 'updLoading');
     disabled = true;
   } else if (u.status === 'ready') {
     text = i18n.t(lang, 'updReady', { v });
