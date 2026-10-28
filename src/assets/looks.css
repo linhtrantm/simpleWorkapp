@@ -1,0 +1,44 @@
+/* Giao diện các trang phụ (Việc hôm nay, Cài đặt, popup cập nhật) theo bộ giao diện của Brezel:
+   nền trang là màu nền, thẻ là màu thẻ; mỗi chủ đề có kiểu thẻ (sticker, notebook, sketch) và hoạ tiết nền riêng.
+   Chủ đề Noel có file riêng (noel.css). Chủ đề "theo hệ thống" không có data-look nên không bị ảnh hưởng. */
+/* Nền đặt ở html (body trong suốt) để lớp hoạ tiết z-index -1 của body nằm trên nền chứ không bị body che */
+html[data-look]:not([data-look='system']) { background: var(--bg); }
+html[data-look]:not([data-look='system']) body { background: transparent; }
+html[data-look]:not([data-look='system']) .list, html[data-look]:not([data-look='system']) .carry,
+html[data-look]:not([data-look='system']) .notes, html[data-look]:not([data-look='system']) .form, html[data-look]:not([data-look='system']) #card { background: var(--card); }
+
+/* Hoạ tiết nền */
+html[data-bg]:not([data-bg='none']):not([data-bg='noel']) body:not(:has(#side))::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background-color: var(--border2); opacity: .55;
+}
+html[data-bg='grid'] body:not(:has(#side))::before { background-image: linear-gradient(var(--border2) 1px, transparent 1px), linear-gradient(90deg, var(--border2) 1px, transparent 1px); background-size: 28px 28px; background-color: transparent !important; }
+html[data-bg='dots'] body:not(:has(#side))::before { background-image: radial-gradient(var(--border2) 2px, transparent 2.5px); background-size: 24px 24px; background-color: transparent !important; }
+html[data-bg='hearts']:not([data-bg='none']):not([data-bg='noel']) body:not(:has(#side))::before, html[data-bg='flowers']:not([data-bg='none']):not([data-bg='noel']) body:not(:has(#side))::before, html[data-bg='tulips']:not([data-bg='none']):not([data-bg='noel']) body:not(:has(#side))::before { background-color: color-mix(in srgb, var(--accent) 15%, transparent); opacity: 1; }
+html[data-bg='hearts'] body:not(:has(#side))::before { -webkit-mask-image: var(--pat-hearts); mask-image: var(--pat-hearts); }
+html[data-bg='flowers'] body:not(:has(#side))::before { -webkit-mask-image: var(--pat-flowers); mask-image: var(--pat-flowers); }
+html[data-bg='tulips'] body:not(:has(#side))::before { -webkit-mask-image: var(--pat-tulips); mask-image: var(--pat-tulips); }
+
+/* Kiểu thẻ: sticker = viền dày và bóng lệch */
+html[data-dstyle='sticker'] .list, html[data-dstyle='sticker'] .carry, html[data-dstyle='sticker'] .notes, html[data-dstyle='sticker'] .form, html[data-dstyle='sticker'] #card {
+  border: 3px solid var(--text); box-shadow: 5px 5px 0 var(--text); border-radius: 22px 26px 20px 28px / 26px 20px 28px 22px;
+}
+html[data-dstyle='sticker'] input.add, html[data-dstyle='sticker'] .addtpl input { border: 3px solid var(--text); border-radius: 14px 18px 13px 17px / 17px 13px 18px 14px; }
+html[data-dstyle='sticker'] button.add, html[data-dstyle='sticker'] .addtpl .go, html[data-dstyle='sticker'] .carry button:not(.ghost) {
+  border: 2.5px solid var(--text); box-shadow: 3px 3px 0 var(--text); border-radius: 14px 18px 13px 17px / 17px 13px 18px 14px; font-weight: 700;
+}
+
+/* Kiểu thẻ: notebook = vở kẻ dòng, viền mảnh, ô nhập chỉ có gạch đứt dưới chân */
+html[data-dstyle='notebook'] .list, html[data-dstyle='notebook'] .carry, html[data-dstyle='notebook'] .notes, html[data-dstyle='notebook'] .form, html[data-dstyle='notebook'] #card {
+  border: 2px solid color-mix(in srgb, var(--text) 38%, var(--card)); border-radius: 6px 10px 8px 12px; box-shadow: 2px 3px rgba(0, 0, 0, .12);
+}
+html[data-dstyle='notebook'] .carry, html[data-dstyle='notebook'] .notes, html[data-dstyle='notebook'] .form, html[data-dstyle='notebook'] #card {
+  background-image: repeating-linear-gradient(transparent 0 31px, color-mix(in srgb, var(--text) 13%, transparent) 31px 32px);
+}
+html[data-dstyle='notebook'] input.add, html[data-dstyle='notebook'] .addtpl input { border: 0; border-bottom: 3px dashed var(--text); border-radius: 0; background: transparent; }
+
+/* Kiểu thẻ: sketch = viền phác thảo, không bóng */
+html[data-dstyle='sketch'] .list, html[data-dstyle='sketch'] .carry, html[data-dstyle='sketch'] .notes, html[data-dstyle='sketch'] .form, html[data-dstyle='sketch'] #card {
+  border: 2.5px solid var(--text); border-radius: 14px 12px 15px 13px / 13px 15px 12px 14px;
+}
+html[data-dstyle='sketch'] input.add, html[data-dstyle='sketch'] .addtpl input { border: 2.5px solid var(--text); border-radius: 13px 11px 14px 12px / 12px 14px 11px 13px; }
+html[data-dstyle='sketch'] button.add, html[data-dstyle='sketch'] .addtpl .go { border: 2.5px solid var(--text); border-radius: 13px 11px 14px 12px / 12px 14px 11px 13px; font-weight: 700; }

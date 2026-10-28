@@ -1,10 +1,8 @@
 // Hiệu ứng riêng của chủ đề Noel (theme.md mục 8): tuyết rơi và dây đèn nhấp nháy. Các chủ đề khác không có hiệu ứng.
-// Tuyết chạy 30 khung/giây trên một canvas nhỏ, dừng khi trang ẩn; tôn trọng "giảm chuyển động" của macOS.
+// Tuyết chạy 30 khung/giây trên một canvas, dừng khi trang ẩn; tôn trọng "giảm chuyển động" của macOS.
 (function (root) {
-  const COLORS = ['#c62828', '#2e7d32', '#f9a825', '#1e88e5'];
   let snow = null; // { canvas, host, raf, last, flakes, onResize }
   let garland = null;
-  let garlandResize = null;
 
   const reduced = () => !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
@@ -34,10 +32,20 @@
       canvas.width = Math.round(s.w * dpr);
       canvas.height = Math.round(s.h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const n = Math.max(12, Math.min(90, Math.round((s.w * s.h) / 9000)));
+      const n = Math.max(14, Math.min(70, Math.round((s.w * s.h) / 11000)));
       s.flakes = Array.from({ length: n }, () => {
-        const depth = Math.random(); // 0 xa, 1 gần: gần thì to, rơi nhanh, đậm
-        return { x: Math.random() * s.w, y: Math.random() * s.h, r: 0.8 + depth * 2.2, v: 14 + depth * 34, sway: 6 + depth * 14, ph: Math.random() * 6.28, a: 0.35 + depth * 0.55 };
+        const q = Math.random();
+        const z = q < 0.55 ? 0 : q < 0.88 ? 1 : 2; // xa, vừa, gần (hạt gần vẽ thành bông tuyết 6 cánh)
+        return {
+          x: Math.random() * s.w,
+          y: Math.random() * s.h,
+          z,
+          r: z === 0 ? 1 + Math.random() * 0.9 : z === 1 ? 1.8 + Math.random() * 1.4 : 3.6 + Math.random() * 2,
+          v: z === 0 ? 15 + Math.random() * 18 : z === 1 ? 36 + Math.random() * 36 : 66 + Math.random() * 48,
+          sway: 6 + z * 7,
+          ph: Math.random() * 6.28,
+          rot: Math.random() * 3.14
+        };
       });
     };
     s.onResize = fit;
@@ -52,56 +60,50 @@
       for (const f of s.flakes) {
         f.y += f.v * dt;
         f.ph += dt * 1.4;
+        f.rot += dt * 0.3;
         const x = f.x + Math.sin(f.ph) * f.sway;
-        if (f.y > s.h + 4) {
-          f.y = -4;
+        if (f.y > s.h + 8) {
+          f.y = -8;
           f.x = Math.random() * s.w;
         }
-        ctx.globalAlpha = f.a;
-        ctx.fillStyle = '#ffffff';
+        // Trắng có quầng xanh nhạt để thấy được trên nền kem
+        ctx.shadowColor = 'rgba(110,150,200,.6)';
+        ctx.shadowBlur = f.z === 2 ? 6 : 3;
+        if (f.z === 2 && f.r > 4.2) {
+          ctx.save();
+          ctx.translate(x, f.y);
+          ctx.rotate(f.rot);
+          ctx.strokeStyle = 'rgba(255,255,255,.95)';
+          ctx.lineWidth = 1.3;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          for (let k = 0; k < 3; k++) {
+            const ang = (k * Math.PI) / 3;
+            ctx.moveTo(-Math.cos(ang) * f.r * 1.3, -Math.sin(ang) * f.r * 1.3);
+            ctx.lineTo(Math.cos(ang) * f.r * 1.3, Math.sin(ang) * f.r * 1.3);
+          }
+          ctx.stroke();
+          ctx.restore();
+          continue;
+        }
+        ctx.fillStyle = f.z === 0 ? 'rgba(255,255,255,.6)' : f.z === 1 ? 'rgba(255,255,255,.88)' : 'rgba(255,255,255,.95)';
         ctx.beginPath();
         ctx.arc(x, f.y, f.r, 0, 6.2832);
         ctx.fill();
-        if (f.r > 2.4) {
-          // hạt gần có viền mờ để nhìn thấy được trên nền kem
-          ctx.globalAlpha = f.a * 0.35;
-          ctx.strokeStyle = '#90a4ae';
-          ctx.lineWidth = 0.6;
-          ctx.stroke();
-        }
       }
-      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
     };
     s.raf = requestAnimationFrame(frame);
     snow = s;
   }
 
-  function removeGarland() {
-    if (garland) garland.remove();
-    garland = null;
-    if (garlandResize) root.removeEventListener('resize', garlandResize);
-    garlandResize = null;
-  }
-
-  // Dây đèn: các cung võng nối nhau, bóng đèn đặt dọc cung, nhấp nháy lệch pha bằng CSS
-  function buildGarland(doc) {
-    const w = Math.max(320, root.innerWidth || 800);
-    const seg = 110;
-    let paths = '';
-    let bulbs = '';
-    let i = 0;
-    for (let x = -10; x < w + seg; x += seg) {
-      const x2 = x + seg;
-      paths += `M${x} 2Q${x + seg / 2} 30 ${x2} 2`;
-      for (const t of [0.22, 0.5, 0.78]) {
-        const bx = (1 - t) * (1 - t) * x + 2 * (1 - t) * t * (x + seg / 2) + t * t * x2;
-        const by = (1 - t) * (1 - t) * 2 + 2 * (1 - t) * t * 30 + t * t * 2;
-        const c = COLORS[i % COLORS.length];
-        bulbs += `<g class="b" style="animation-delay:${((i * 0.37) % 1.8).toFixed(2)}s"><rect x="${(bx - 2).toFixed(1)}" y="${(by - 1).toFixed(1)}" width="4" height="4" fill="#3a3a3a"/><ellipse cx="${bx.toFixed(1)}" cy="${(by + 6).toFixed(1)}" rx="3.6" ry="5" fill="${c}"/></g>`;
-        i++;
-      }
-    }
-    return `<svg width="${w}" height="44" viewBox="0 0 ${w} 44" xmlns="http://www.w3.org/2000/svg"><path d="${paths}" fill="none" stroke="#3a3a3a" stroke-opacity=".55" stroke-width="1.4"/>${bulbs}</svg>`;
+  // Dây đèn: dây nâu võng từng cung, bốn bóng đèn pastel mỗi cung, nhấp nháy lệch pha bằng CSS
+  function buildGarland() {
+    const colors = ['#3f8f4f', '#ffd43b', '#d6455d', '#7be08f'];
+    const bulbs = [12, 36, 60, 84]
+      .map((x, i) => `<g class="b" style="animation-delay:${(i * 0.4).toFixed(1)}s"><rect x="${x - 2}" y="13" width="4" height="4" rx="1" fill="#5a3a20"/><path d="M${x - 4.2} 17h8.4c0 5-2 8-4.2 8s-4.2-3-4.2-8z" fill="${colors[i]}" stroke="#3a2e2a" stroke-width=".9"/></g>`)
+      .join('');
+    return `<svg width="100%" height="32" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="swGarland" width="96" height="32" patternUnits="userSpaceOnUse"><path d="M0 3Q12 22 24 3Q36 22 48 3Q60 22 72 3Q84 22 96 3" fill="none" stroke="#5a3a20" stroke-width="1.8"/>${bulbs}</pattern></defs><rect width="100%" height="32" fill="url(#swGarland)"/></svg>`;
   }
 
   function addGarland(doc) {
@@ -109,14 +111,13 @@
     garland = doc.createElement('div');
     garland.className = 'noel-garland';
     garland.setAttribute('aria-hidden', 'true');
-    garland.innerHTML = buildGarland(doc);
+    garland.innerHTML = buildGarland();
     doc.body.insertBefore(garland, doc.body.firstChild);
-    let timer = 0;
-    garlandResize = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => garland && (garland.innerHTML = buildGarland(doc)), 150);
-    };
-    root.addEventListener('resize', garlandResize);
+  }
+
+  function removeGarland() {
+    if (garland) garland.remove();
+    garland = null;
   }
 
   function sync(id, doc) {

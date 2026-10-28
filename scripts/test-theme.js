@@ -151,12 +151,36 @@ test('chủ đề tự pha: màu nhấn suy ra từ màu chọn luôn đọc đ�
   }
 });
 
-test('Noel theo quy tắc 60-30-10: nền kem, thanh bên xanh lá, màu nhấn đỏ', () => {
+test('Noel theo Brezel: nền be ấm, chữ nâu, nhấn đỏ, thanh bên sáng ấm (không xanh lá đậm)', () => {
   const n = theme.resolveTheme('noel');
   assert.equal(n.accent, '#b3261e');
+  assert.equal(n.palette.bg, '#ecd9bd');
+  assert.equal(n.palette.ink, '#3a2314');
   assert.equal(theme.isLight(n.palette.bg), true);
-  const [r, g, b] = [n.frame.base].map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)))[0];
-  assert.ok(g > r && g > b, 'thanh bên của Noel phải thiên xanh lá');
+  assert.equal(n.frame.light, true);
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(n.frame.base.slice(i, i + 2), 16));
+  assert.ok(r >= g && g >= b, 'thanh bên của Noel phải ngả be ấm');
+});
+
+test('mỗi chủ đề có kiểu thẻ và hoạ tiết nền hợp lệ, applyLook ghi data-dstyle và data-bg', () => {
+  const styles = ['clean', 'sticker', 'notebook', 'sketch'];
+  const bgs = ['none', 'grid', 'dots', 'hearts', 'flowers', 'tulips', 'noel'];
+  for (const id of theme.THEME_IDS.filter((i) => i !== 'system')) {
+    const r = theme.resolveTheme(id, '#2b5cff');
+    assert.ok(styles.includes(r.style) && bgs.includes(r.bg), id);
+    assert.ok(['default', 'baloo', 'quicksand', 'patrick', 'mali', 'pangolin'].includes(r.font), id);
+  }
+  assert.equal(theme.resolveTheme('pink').style, 'sticker');
+  assert.equal(theme.resolveTheme('pink').bg, 'hearts');
+  const doc = { documentElement: { style: { setProperty() {}, removeProperty() {} }, dataset: {} }, getElementById: () => null };
+  theme.applyLook(theme.resolveTheme('sky'), doc);
+  assert.equal(doc.documentElement.dataset.dstyle, 'notebook');
+  assert.equal(doc.documentElement.dataset.bg, 'grid');
+  assert.equal(doc.documentElement.dataset.font, 'patrick');
+  theme.applyLook(null, doc);
+  assert.equal(doc.documentElement.dataset.dstyle, 'clean');
+  assert.equal(doc.documentElement.dataset.bg, 'none');
+  assert.equal(doc.documentElement.dataset.font, 'default');
 });
 
 test('applyLook: ghi màu nhấn của chủ đề, data-look, gỡ về mặc định khi null', () => {

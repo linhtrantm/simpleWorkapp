@@ -4,6 +4,7 @@
   // Màu nhấn cố định (cam). Đã bỏ tuỳ chọn đổi màu nhấn.
   const ACCENT = '#f58a1f';
 
+  // style: kiểu thẻ (clean gọn, sticker viền dày có bóng lệch, notebook vở kẻ dòng, sketch viền phác thảo); bg: hoạ tiết nền (none, grid, dots, hearts, flowers, tulips, noel); font: baloo, quicksand, patrick, mali, pangolin hoặc default (font hệ thống). Theo bộ giao diện của Brezel.
   // accent: màu nhấn riêng của chủ đề (nút chính, vạch chọn, tag đang làm).
   // palette: bg = nền trang, card = nền thẻ, rule = viền, ink = chữ chính, soft = chữ phụ (đặt token theo vai trò, theo theme.md).
   // frame.css: nền thanh bên (đặc hoặc dải màu); frame.base: màu đại diện để chọn chữ sáng/tối và tô nền cửa sổ.
@@ -11,51 +12,61 @@
   const THEMES = {
     paper: {
       accent: '#3a4462',
+      style: 'clean', bg: 'none',
       palette: { dark: false, bg: '#f4f1ea', card: '#fffdf8', rule: '#e3dccd', ink: '#1d2230', soft: '#5d6272' },
       frame: { css: 'linear-gradient(180deg, #f3ead8, #dccaa6)', base: '#e8d9bc' }
     },
     pink: {
       accent: '#d6457f',
+      style: 'sticker', bg: 'hearts', font: 'baloo',
       palette: { dark: false, bg: '#fbe9f1', card: '#fffafc', rule: '#f1cddd', ink: '#46203a', soft: '#85546f' },
       frame: { css: 'linear-gradient(180deg, #fbd5e4, #f4b8d1)', base: '#f7c6da' }
     },
     mint: {
       accent: '#2e8f62',
+      style: 'sketch', bg: 'flowers', font: 'quicksand',
       palette: { dark: false, bg: '#e6f4ec', card: '#f7fcf9', rule: '#c5e3d1', ink: '#14352a', soft: '#4d7263' },
       frame: { css: 'linear-gradient(180deg, #d3f0e1, #aee0c8)', base: '#c0e8d4' }
     },
     sky: {
       accent: '#2b7de0',
+      style: 'notebook', bg: 'grid', font: 'patrick',
       palette: { dark: false, bg: '#e8f1fb', card: '#f9fbff', rule: '#c8dcf2', ink: '#15304f', soft: '#4a6788' },
       frame: { css: 'linear-gradient(180deg, #d4e6fa, #aecff2)', base: '#c1d9f6' }
     },
     sunset: {
       accent: '#d9610a',
+      style: 'clean', bg: 'tulips', font: 'mali',
       palette: { dark: false, bg: '#fbeee3', card: '#fffaf5', rule: '#f2d5bd', ink: '#4a2410', soft: '#8a5b3d' },
       frame: { css: 'linear-gradient(180deg, #fde0c9, #f9c39c)', base: '#fad2b0' }
     },
     grape: {
       accent: '#7a48d1',
+      style: 'clean', bg: 'dots',
       palette: { dark: false, bg: '#efe9fb', card: '#fbf9ff', rule: '#d9ccf2', ink: '#2a1650', soft: '#645488' },
       frame: { css: 'linear-gradient(180deg, #e3d7f9, #cbb4f0)', base: '#d7c6f4' }
     },
     noel: {
       accent: '#b3261e',
-      palette: { dark: false, bg: '#ecd9bd', card: '#fbf3e4', rule: '#d9c19a', ink: '#3a1d12', soft: '#7a5640' },
-      frame: { css: 'linear-gradient(180deg, #0d4a2b, #1c6b3f)', base: '#14572f' } // xanh thông: màu phụ, đỏ là màu nhấn, kem là nền (quy tắc 60-30-10)
+      style: 'clean', bg: 'noel', font: 'baloo',
+      palette: { dark: false, bg: '#ecd9bd', card: '#fff8ec', rule: '#cfae80', ink: '#3a2314', soft: '#6f4a2c' },
+      frame: { css: 'linear-gradient(180deg, #f3e6d3, #e6d3b6)', base: '#ecdcc3' } // theo Brezel: be ấm, nâu làm chữ, đỏ làm nhấn, xanh lá chỉ là viền nhỏ
     },
     night: {
       accent: '#8e9bff',
+      style: 'sketch', bg: 'dots', font: 'pangolin',
       palette: { dark: true, bg: '#14161f', card: '#1e2130', rule: '#2f3349', ink: '#e8eaf3', soft: '#9aa0b8' },
       frame: { css: 'linear-gradient(180deg, #0c0e15, #181b28)', base: '#11131c' }
     },
     aurora: {
       accent: '#3fc1c9',
+      style: 'clean', bg: 'none',
       palette: { dark: true, bg: '#0f1a22', card: '#172733', rule: '#26404f', ink: '#e6f3f6', soft: '#93b3bf' },
       frame: { css: 'linear-gradient(165deg, #0f2027, #1f6f80 55%, #6a45c4)', base: '#1f5266' }
     },
     graphite: {
       accent: '#f58a1f',
+      style: 'clean', bg: 'none',
       palette: { dark: true, bg: '#1b1d20', card: '#25282c', rule: '#3a3e44', ink: '#eceff3', soft: '#9ba2ac' },
       frame: { css: 'linear-gradient(180deg, #212529, #495057)', base: '#33383d' }
     }
@@ -124,6 +135,8 @@
     while (l > 20 && (luminance(card) + 0.05) / (luminance(accent) + 0.05) < 3) accent = hslToHex(h, Math.max(s, 45), (l -= 2));
     return {
       accent,
+      style: 'clean',
+      bg: 'none',
       palette: {
         dark: false,
         bg: hslToHex(h, s, 95),
@@ -140,7 +153,7 @@
   function resolveTheme(id, custom) {
     const t = id === 'custom' ? (isHex(custom) ? deriveCustom(custom) : null) : THEMES[id];
     if (!t) return null;
-    return { id, accent: t.accent, palette: { ...t.palette }, frame: { ...t.frame, light: isLight(t.frame.base) } };
+    return { id, accent: t.accent, style: t.style || 'clean', bg: t.bg || 'none', font: t.font || 'default', palette: { ...t.palette }, frame: { ...t.frame, light: isLight(t.frame.base) } };
   }
 
   // Chủ đề = bảng màu + màu thanh bên gộp một. Tên cũ (palette, frame) đổi sang tên mới để người dùng cũ không mất lựa chọn.
@@ -204,6 +217,9 @@
     apply(doc, (look && look.accent) || ACCENT);
     applyPalette(look && look.palette, doc);
     doc.documentElement.dataset.look = look ? look.id : 'system';
+    doc.documentElement.dataset.dstyle = (look && look.style) || 'clean';
+    doc.documentElement.dataset.bg = (look && look.bg) || 'none';
+    doc.documentElement.dataset.font = (look && look.font) || 'default';
     if (root.swFx) root.swFx.sync(look ? look.id : 'system', doc);
   }
 

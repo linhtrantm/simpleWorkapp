@@ -1,0 +1,9 @@
+/* Hoạ tiết nền cho thanh bên của cửa sổ chính, cùng bộ hoạ tiết với các trang phụ. Noel đã có tuyết riêng nên không thêm. */
+html[data-bg]:not([data-bg='none']):not([data-bg='noel']) #side::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+}
+html[data-bg='grid'] #side::before { background-image: linear-gradient(color-mix(in srgb, var(--text) 9%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--text) 9%, transparent) 1px, transparent 1px); background-size: 20px 20px; }
+html[data-bg='dots'] #side::before { background-image: radial-gradient(color-mix(in srgb, var(--text) 16%, transparent) 1.6px, transparent 2px); background-size: 18px 18px; }
+html[data-bg='hearts'] #side::before { -webkit-mask-image: var(--pat-hearts); mask-image: var(--pat-hearts); -webkit-mask-size: 52px 52px; mask-size: 52px 52px; background-color: color-mix(in srgb, var(--accent) 15%, transparent); }
+html[data-bg='flowers'] #side::before { -webkit-mask-image: var(--pat-flowers); mask-image: var(--pat-flowers); -webkit-mask-size: 56px 56px; mask-size: 56px 56px; background-color: color-mix(in srgb, var(--accent) 16%, transparent); }
+html[data-bg='tulips'] #side::before { -webkit-mask-image: var(--pat-tulips); mask-image: var(--pat-tulips); -webkit-mask-size: 56px 56px; mask-size: 56px 56px; background-color: color-mix(in srgb, var(--accent) 16%, transparent); }

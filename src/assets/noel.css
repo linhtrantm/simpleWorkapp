@@ -1,27 +1,48 @@
-/* Chủ đề Noel: kem là nền, xanh thông là màu phụ (thanh bên), đỏ là màu nhấn (quy tắc 60-30-10 của theme.md).
-   Mọi quy tắc nằm dưới html[data-look='noel'] nên các chủ đề khác không bị ảnh hưởng. */
+/* Chủ đề Noel, làm theo bản Noel của Brezel: nền be ấm, thẻ kem viền nâu có bóng lệch, chữ nâu, đỏ là màu nhấn,
+   xanh lá chỉ làm điểm nhấn nhỏ. Mọi quy tắc nằm dưới html[data-look='noel'] nên các chủ đề khác không bị ảnh hưởng. */
 @keyframes noel-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
-html[data-look='noel'] .noel-garland { position: fixed; top: 0; left: 0; right: 0; height: 44px; z-index: 60; pointer-events: none; overflow: hidden; }
+html[data-look='noel'] { --noel-line: #3a2314; }
+
+/* Dây đèn trên đầu các trang phụ */
+html[data-look='noel'] .noel-garland { position: fixed; top: 0; left: 0; right: 0; height: 32px; z-index: 60; pointer-events: none; overflow: hidden; }
 html[data-look='noel'] .noel-garland .b { animation: noel-twinkle 1.8s ease-in-out infinite; }
 
-/* Họa tiết nền nhẹ (nhành ô rô và hạt quả đỏ), màu cố định nên chỉ dùng cho chủ đề đặc biệt, độ mờ thấp */
-html[data-look='noel'] body:not(:has(#side)) { background: transparent; }
+/* Thanh bên màu be ấm, viền trên xanh lá */
+html[data-look='noel'] #side { box-shadow: inset 0 3px 0 #2f7d46; }
+
+/* Nền các trang phụ: vài quầng sáng ấm và các dấu cộng, bông tuyết nhỏ rải đều */
 html[data-look='noel'] body:not(:has(#side))::before {
-  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .5;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><g fill='%232e7d32'><path d='M20 24c6-8 14-6 14 2-8 2-12 2-14-2z'/><path d='M20 24c-6-8-14-6-14 2 8 2 12 2 14-2z'/></g><circle cx='20' cy='24' r='3' fill='%23c62828'/><circle cx='70' cy='72' r='1.6' fill='%23ffffff'/><circle cx='80' cy='20' r='1.2' fill='%23ffffff'/><circle cx='44' cy='64' r='1.2' fill='%23ffffff'/></svg>");
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><g fill='none' stroke-linecap='round'><path d='M30 40v10M25 45h10' stroke='%23e0b050' stroke-width='2' opacity='.7'/><path d='M130 120v10M125 125h10' stroke='%23e0b050' stroke-width='2' opacity='.7'/><g stroke='%23b8cfe6' stroke-width='1.4' opacity='.8'><path d='M120 30v12M114 36h12M116 32l8 8M124 32l-8 8'/><path d='M50 140v10M45 145h10M47 142l6 6M53 142l-6 6'/></g></g></svg>"),
+    radial-gradient(circle at 8% 38%, rgba(246, 199, 107, .42), transparent 34%),
+    radial-gradient(circle at 92% 70%, rgba(240, 160, 96, .36), transparent 32%),
+    radial-gradient(circle at 72% 8%, rgba(255, 255, 255, .45), transparent 30%),
+    radial-gradient(circle at 30% 96%, rgba(214, 69, 93, .14), transparent 30%);
 }
 
-/* Tuyết đọng trên mép các thẻ */
-html[data-look='noel'] .now, html[data-look='noel'] .carry, html[data-look='noel'] .list, html[data-look='noel'] .notes, html[data-look='noel'] #card { position: relative; }
-html[data-look='noel'] .now::after, html[data-look='noel'] .carry::after, html[data-look='noel'] .list::after, html[data-look='noel'] .notes::after {
-  content: ''; position: absolute; left: 16px; right: 16px; top: 0; height: 7px; pointer-events: none;
-  background: #fff; border-radius: 0 0 9px 9px / 0 0 7px 7px; opacity: .92; box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+/* Thẻ: viền nâu dày, bóng lệch, góc bo như vẽ tay; tuyết đọng trên mép */
+html[data-look='noel'] .now, html[data-look='noel'] .carry, html[data-look='noel'] .list, html[data-look='noel'] .notes, html[data-look='noel'] #card {
+  position: relative; border: 3px solid var(--noel-line); box-shadow: 5px 5px 0 var(--noel-line); border-radius: 22px 26px 20px 28px / 26px 20px 28px 22px;
 }
+html[data-look='noel'] .now::after, html[data-look='noel'] .carry::after, html[data-look='noel'] .list::after, html[data-look='noel'] .notes::after, html[data-look='noel'] #card::after {
+  content: ''; position: absolute; left: 10px; right: 10px; top: -9px; height: 14px; z-index: 1; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='14' viewBox='0 0 44 14'%3E%3Cpath d='M0 14V8Q5 1 11 6Q16 -1 22 6Q28 1 33 6Q39 0 44 8V14Z' fill='%23fff' stroke='%23c2d6e8' stroke-width='1.2'/%3E%3C/svg%3E") repeat-x;
+  background-size: 44px 14px;
+}
+html[data-look='noel'] .list::after { left: 0; right: 0; top: 0; } /* .list cắt phần tràn nên tuyết nằm bên trong */
 
-/* Thanh tiến độ sọc kẹo, việc xong màu xanh thông */
-html[data-look='noel'] .bar i { background: repeating-linear-gradient(45deg, #c62828 0 8px, #f7f1e3 8px 16px); }
-html[data-look='noel'] .done .tick { background: #2e7d32; border-color: #2e7d32; }
+/* Thẻ màu kem trên nền be (mặc định các thẻ chỉ phủ một lớp mờ lên nền nên sẽ lẫn vào nền) */
+html[data-look='noel'] .list, html[data-look='noel'] .carry, html[data-look='noel'] .notes, html[data-look='noel'] #card { background: var(--card); }
+html[data-look='noel'] .form { background: var(--card); border: 2.5px solid var(--noel-line); box-shadow: 4px 4px 0 var(--noel-line); }
+
+/* Thanh tiến độ sọc kẹo, nút chính có sọc chéo nhạt, việc xong màu xanh lá */
+html[data-look='noel'] .bar i { background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .55) 0 6px, transparent 6px 12px), #b3261e; }
+html[data-look='noel'] .carry button:not(.ghost), html[data-look='noel'] .switch button:not(.ghost), html[data-look='noel'] .addtpl .go, html[data-look='noel'] .actions .add, html[data-look='noel'] #upd-btn {
+  background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .16) 0 9px, transparent 9px 18px), #b3261e;
+}
+html[data-look='noel'] .done .tick { background: #1f7a3a; border-color: #1f7a3a; }
 html[data-look='noel'] .done .tick::after { color: #fff; }
 
 @media (prefers-reduced-motion: reduce) {

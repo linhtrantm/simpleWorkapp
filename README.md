@@ -2,7 +2,7 @@
 
 App desktop macOS (Electron) gom Zalo, WhatsApp, Teams, Messenger, Claude và các web app tuỳ ý vào một cửa sổ. Mỗi app có phiên đăng nhập riêng, giữ nguyên qua các lần mở và các lần cập nhật.
 
-Phiên bản hiện tại: **1.7.3** (macOS, Apple Silicon).
+Phiên bản hiện tại: **1.7.4** (macOS, Apple Silicon).
 
 ## Tính năng
 
@@ -33,7 +33,7 @@ Nếu chạy trong terminal của VSCode mà app crash ngay, thử `env -u ELECT
 npm run dist
 ```
 
-Kết quả: `dist/simpleWork-1.7.3-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
+Kết quả: `dist/simpleWork-1.7.4-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
 
 App được ký **ad-hoc**, chưa có Apple Developer ID nên chưa notarize. Ký ad-hoc là điều kiện để macOS đưa app vào mục Thông báo. Lần đầu mở nếu bị Gatekeeper chặn: chuột phải vào app > Open, hoặc `xattr -cr /Applications/simpleWork.app`.
 
@@ -105,6 +105,10 @@ src/
   icons/, assets/                  icon app web, font, logo, icon menu bar
 build/icon.png       icon app
 ```
+
+## Giao diện và font
+
+Mỗi chủ đề (`src/theme.js`) có bảng màu, kiểu thẻ (`style`), hoạ tiết nền (`bg`) và font (`font`), làm theo bộ giao diện của Brezel. Hoạ tiết hiện ở thanh bên (`assets/side.css`) và các trang phụ (`assets/looks.css`); Noel có thêm `assets/noel.css` và `src/fx.js`. Font Baloo 2, Quicksand, Mali, Patrick Hand, Pangolin nằm trong `src/assets/fonts/` (giấy phép SIL OFL, chỉ nhóm latin và vietnamese), khai báo ở `assets/fonts.css`.
 
 ## Lưu ý
 
