@@ -22,6 +22,8 @@ function load() {
       keepAwakeAc: typeof data.keepAwakeAc === 'boolean' ? data.keepAwakeAc : data.keepAwake !== 'off' && data.keepAwake !== false,
       keepAwakeBattery: typeof data.keepAwakeBattery === 'boolean' ? data.keepAwakeBattery : data.keepAwake === undefined ? true : data.keepAwake === 'always',
       reloadOnWake: data.reloadOnWake !== false,
+      autoCheckUpdates: data.autoCheckUpdates !== false,
+      updateNotified: typeof data.updateNotified === 'string' ? data.updateNotified : '',
       theme: ['system', 'light', 'dark'].includes(data.theme) ? data.theme : 'system',
       accent: Object.keys(theme.ACCENTS).includes(data.accent) || (data.accent === 'custom' && theme.isHex(data.accentCustom)) ? data.accent : 'orange',
       accentCustom: theme.isHex(data.accentCustom) ? data.accentCustom : '#f58a1f',
@@ -33,7 +35,7 @@ function load() {
         : []
     };
   } catch {
-    return { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', accentCustom: '#f58a1f', frame: 'none', frameCustom: '#2b5cff', order: [], notifySound: true, keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true };
+    return { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', accentCustom: '#f58a1f', frame: 'none', frameCustom: '#2b5cff', order: [], notifySound: true, keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '' };
   }
 }
 

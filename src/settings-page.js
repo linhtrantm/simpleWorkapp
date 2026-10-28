@@ -7,6 +7,15 @@ keepAc.addEventListener('change', () => window.simpleWork.setKeepAwake({ ac: kee
 keepBattery.addEventListener('change', () => window.simpleWork.setKeepAwake({ battery: keepBattery.checked }));
 const reloadWake = document.getElementById('reload-wake');
 reloadWake.addEventListener('change', () => window.simpleWork.setReloadOnWake(reloadWake.checked));
+const updStatus = document.getElementById('upd-status');
+const updSub = document.getElementById('upd-sub');
+const updBtn = document.getElementById('upd-btn');
+const updAuto = document.getElementById('upd-auto');
+updAuto.addEventListener('change', () => window.simpleWork.setAutoUpdate(updAuto.checked));
+updBtn.addEventListener('click', () => {
+  if (updBtn.dataset.act === 'install') window.simpleWork.updateInstall();
+  else window.simpleWork.updateCheck();
+});
 const notifSound = document.getElementById('notif-sound');
 notifSound.addEventListener('change', () => window.simpleWork.setNotifySound(notifSound.checked));
 const level = document.getElementById('level');
@@ -207,8 +216,44 @@ list.addEventListener('dragover', (e) => {
 });
 list.addEventListener('drop', (e) => e.preventDefault());
 
+function renderUpdate(u, auto) {
+  const cur = u.current.version + (u.current.build ? ` (${u.current.build})` : '');
+  const v = u.latest ? u.latest.version : '';
+  let text = i18n.t(lang, 'updUpToDate', { v: cur });
+  let sub = '';
+  let btn = i18n.t(lang, 'updCheck');
+  let act = 'check';
+  let disabled = false;
+  if (u.status === 'checking') {
+    text = i18n.t(lang, 'updChecking');
+    disabled = true;
+  } else if (u.status === 'downloading') {
+    text = i18n.t(lang, 'updDownloading', { v, pct: u.progress });
+    btn = i18n.t(lang, 'updChecking');
+    disabled = true;
+  } else if (u.status === 'ready') {
+    text = i18n.t(lang, 'updReady', { v });
+    btn = i18n.t(lang, 'updInstall');
+    act = 'install';
+  } else if (u.status === 'available') {
+    text = i18n.t(lang, 'updAvailableManual', { v });
+  } else if (u.status === 'error') {
+    text = i18n.t(lang, 'updError');
+    sub = u.error;
+  } else if (u.status === 'idle') {
+    text = i18n.t(lang, 'updIdle', { v: cur });
+  }
+  updStatus.textContent = text;
+  updSub.textContent = sub || (u.latest && u.latest.notes ? u.latest.notes.split('\n')[0].slice(0, 120) : '');
+  updBtn.textContent = btn;
+  updBtn.dataset.act = act;
+  updBtn.disabled = disabled;
+  updBtn.style.opacity = disabled ? 0.5 : 1;
+  updAuto.checked = auto !== false;
+}
+
 let framesLang = '';
-function render({ apps, version, iconLevel, lang: newLang, theme, accent, accentCustom, accentHex, frame, frameCustom, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
+function render({ apps, version, iconLevel, lang: newLang, theme, accent, accentCustom, accentHex, frame, frameCustom, update, autoCheckUpdates, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
   lang = newLang || 'vi';
   i18n.apply(lang, document);
   swTheme.apply(accentHex || accent, document);
@@ -229,6 +274,7 @@ function render({ apps, version, iconLevel, lang: newLang, theme, accent, accent
   for (const b of langs.children) b.classList.toggle('on', b.dataset.lang === lang);
   if (document.activeElement !== level) level.value = iconLevel || 4;
   paintLevel();
+  if (update) renderUpdate(update, autoCheckUpdates);
   notifSound.checked = notifySound !== false;
   keepAc.checked = keepAwakeAc !== false;
   keepBattery.checked = keepAwakeBattery !== false;

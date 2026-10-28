@@ -1,7 +1,7 @@
 {
   "name": "simplework",
   "productName": "simpleWork",
-  "version": "1.5.0",
+  "version": "1.6.1",
   "description": "simpleWork - gom Zalo, WhatsApp, Teams vào một cửa sổ",
   "main": "src/main.js",
   "author": "simplesoft",
@@ -9,7 +9,9 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist": "node scripts/build.js"
+    "dist": "node scripts/build.js",
+    "release": "node scripts/release.js",
+    "test": "node scripts/test-daytask.js && node scripts/test-theme.js && node scripts/test-updater.js"
   },
   "devDependencies": {
     "electron": "^44.7.0",

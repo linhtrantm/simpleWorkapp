@@ -13,6 +13,7 @@ const settingsStore = require('./settings');
 const dayStore = require('./daytask-store');
 const dayAgent = require('./daytask-agent');
 const swTheme = require('./theme');
+const updater = require('./updater');
 const i18n = require('./i18n');
 
 // Kích thước thanh bên theo cỡ icon (px)
@@ -53,7 +54,7 @@ let dayTray = null;
 let dayTraySig = '';
 let dayBeatTimer = null;
 let splashView = null;
-let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', accentCustom: '#f58a1f', frame: 'none', frameCustom: '#2b5cff', order: [] };
+let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', accentCustom: '#f58a1f', frame: 'none', frameCustom: '#2b5cff', order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
@@ -176,6 +177,8 @@ function settingsState() {
     keepAwakeAc: settings.keepAwakeAc,
     keepAwakeBattery: settings.keepAwakeBattery,
     reloadOnWake: settings.reloadOnWake,
+    autoCheckUpdates: settings.autoCheckUpdates,
+    update: updater.getState(),
     apps: allTabs().map((t) => ({
       id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, custom: !!t.custom, local: !!t.local, enabled: isEnabled(t.id)
     }))
@@ -652,6 +655,14 @@ function buildAppMenu() {
         label: 'simpleWork',
         submenu: [
           { label: T('menuAbout'), click: showAbout },
+          {
+            label: T('menuUpdate'),
+            click: () => {
+              showWindow();
+              setSettingsOpen(true);
+              updater.check({ manual: true });
+            }
+          },
           { type: 'separator' },
           {
             label: T('traySettings'),
@@ -1066,6 +1077,13 @@ ipcMain.handle('daytask:pause', dayReply(() => dayStore.pause()));
 ipcMain.handle('daytask:done', dayReply(dayStore.done));
 ipcMain.handle('daytask:carry', dayReply(dayStore.carry));
 ipcMain.handle('daytask:skip-carry', dayReply(dayStore.skipCarry));
+ipcMain.on('update:check', () => updater.check({ manual: true }));
+ipcMain.on('update:install', () => updater.install());
+ipcMain.on('settings:set-auto-update', (_e, on) => {
+  settings.autoCheckUpdates = !!on;
+  settingsStore.save(settings);
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+});
 ipcMain.on('settings:toggle', () => setSettingsOpen(!settingsOpen));
 ipcMain.on('settings:close', () => setSettingsOpen(false));
 ipcMain.handle('settings:get', settingsState);
@@ -1174,6 +1192,27 @@ app.whenReady().then(() => {
     if (settingsView) settingsView.setBackgroundColor(cardColor());
     if (dayView) dayView.setBackgroundColor(cardColor());
     for (const v of views.values()) v.setBackgroundColor(cardColor());
+  });
+  updater.init({
+    settings: () => settings,
+    save: () => settingsStore.save(settings),
+    buildNumber,
+    T,
+    notify: (title, body) => {
+      const n = new Notification({ title, body });
+      n.on('click', () => {
+        showWindow();
+        setSettingsOpen(true);
+      });
+      n.show();
+    },
+    onState: () => {
+      if (settingsView && !settingsView.webContents.isDestroyed()) settingsView.webContents.send('settings:state', settingsState());
+    },
+    quit: () => {
+      quitting = true;
+      app.quit();
+    }
   });
   dayAgent.init({ store: dayStore, T, enabled: () => isEnabled('daytask'), openPage });
   dayStore.onChange(() => {
