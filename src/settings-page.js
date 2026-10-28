@@ -22,7 +22,6 @@ const level = document.getElementById('level');
 const lv = document.getElementById('lv');
 const langs = document.getElementById('langs');
 const themes = document.getElementById('themes');
-const accents = document.getElementById('accents');
 const errEl = document.getElementById('err');
 const nameEl = document.getElementById('app-name');
 const urlEl = document.getElementById('app-url');
@@ -118,89 +117,42 @@ function makeMixer(host, onPick) {
     paint
   };
 }
-const accentMix = makeMixer(document.getElementById('accentMix'), (c) => window.simpleWork.setAccentCustom(c));
-const frameMix = makeMixer(document.getElementById('frameMix'), (c) => window.simpleWork.setFrameCustom(c));
-const framesEl = document.getElementById('frames');
-const palettesEl = document.getElementById('palettes');
+const lookMix = makeMixer(document.getElementById('lookMix'), (c) => window.simpleWork.setLookCustom(c));
+const looksEl = document.getElementById('looks');
+const lastCustom = { look: '#2b5cff' };
+const LOOK_ORDER = ['system', ...Object.keys(swTheme.THEMES), 'custom'];
 
-// Bảng màu: ô xem trước vẽ nền, thẻ và chữ của chính bảng đó
-function buildPalettes() {
-  palettesEl.replaceChildren();
-  ['system', ...Object.keys(swTheme.PALETTES)].forEach((id) => {
-    const p = swTheme.PALETTES[id];
+// Chủ đề = bảng màu nền app + màu thanh bên. Ô xem trước vẽ cả hai: dải bên trái là thanh bên, bên phải là nền app với một thẻ.
+function buildLooks() {
+  looksEl.replaceChildren();
+  LOOK_ORDER.forEach((id) => {
+    const t = swTheme.THEMES[id];
     const b = document.createElement('button');
     b.className = 'frame';
-    b.dataset.palette = id;
+    b.dataset.look = id;
     const pv = document.createElement('div');
     pv.className = 'pv';
-    pv.style.gridTemplateColumns = '1fr';
-    if (p) {
-      pv.style.background = p.bg;
-      pv.innerHTML = `<div style="margin:8px;border-radius:6px;background:${p.card};border:1px solid ${p.rule};padding:5px 7px"><div style="height:5px;border-radius:3px;background:${p.ink};width:60%"></div><div style="height:4px;border-radius:3px;background:${p.soft};width:40%;margin-top:4px"></div></div>`;
+    if (t) {
+      const rail = document.createElement('i');
+      rail.style.background = t.frame.css;
+      const body = document.createElement('i');
+      body.style.background = t.palette.bg;
+      body.innerHTML = `<div style="margin:7px 6px;border-radius:5px;background:${t.palette.card};border:1px solid ${t.palette.rule};padding:4px 6px"><div style="height:4px;border-radius:2px;background:${t.palette.ink};width:65%"></div><div style="height:3px;border-radius:2px;background:${t.palette.soft};width:40%;margin-top:3px"></div></div>`;
+      pv.append(rail, body);
+    } else if (id === 'custom') {
+      pv.classList.add('conic');
+      pv.append(document.createElement('i'), document.createElement('i'));
     } else {
-      pv.style.background = 'linear-gradient(135deg, #f2f2f7 50%, #1c1c1e 50%)';
+      pv.style.background = 'linear-gradient(135deg, #f2f2f7 50%, #1c1c1e 50%)'; // theo hệ thống: nửa sáng nửa tối
+      pv.style.gridTemplateColumns = '1fr';
     }
     const name = document.createElement('span');
-    name.textContent = i18n.t(lang, 'palette_' + id);
+    name.textContent = i18n.t(lang, 'look_' + id);
     b.append(pv, name);
-    b.addEventListener('click', () => window.simpleWork.setPalette(id));
-    palettesEl.appendChild(b);
+    b.addEventListener('click', () => (id === 'custom' ? window.simpleWork.setLookCustom(lastCustom.look) : window.simpleWork.setLook(id)));
+    looksEl.appendChild(b);
   });
 }
-
-// Màu nhấn có sẵn + nút "tuỳ chọn" mở bộ pha màu
-{
-  const btn = document.createElement('button');
-  btn.dataset.accent = 'custom';
-  btn.className = 'custom';
-  btn.addEventListener('click', () => window.simpleWork.setAccentCustom(swTheme.isHex(lastCustom.accent) ? lastCustom.accent : '#f58a1f'));
-  accents.appendChild(btn);
-}
-const lastCustom = { accent: '#f58a1f', frame: '#2b5cff' };
-function buildFrames() {
-  framesEl.replaceChildren();
-  const add = (id, label, pvNode) => {
-    const b = document.createElement('button');
-    b.className = 'frame';
-    b.dataset.frame = id;
-    const pv = document.createElement('div');
-    pv.className = 'pv';
-    pvNode(pv);
-    const name = document.createElement('span');
-    name.textContent = label;
-    b.append(pv, name);
-    b.addEventListener('click', () => {
-      if (id === 'custom') window.simpleWork.setFrameCustom(lastCustom.frame);
-      else window.simpleWork.setFrame(id);
-    });
-    framesEl.appendChild(b);
-  };
-  const rail = (css) => (pv) => {
-    const i = document.createElement('i');
-    i.style.background = css;
-    pv.append(i, document.createElement('i'));
-  };
-  add('none', i18n.t(lang, 'frameNone'), (pv) => {
-    const i = document.createElement('i');
-    i.style.background = 'var(--bg)';
-    pv.append(i, document.createElement('i'));
-  });
-  Object.entries(swTheme.FRAMES).forEach(([id, f]) => add(id, i18n.t(lang, 'frame_' + id), rail(f.css)));
-  add('accent', i18n.t(lang, 'frameAccent'), rail('var(--accent)'));
-  add('custom', i18n.t(lang, 'frameCustom'), (pv) => {
-    pv.classList.add('conic');
-    pv.append(document.createElement('i'), document.createElement('i'));
-  });
-}
-
-Object.entries(swTheme.ACCENTS).forEach(([key, [a]]) => {
-  const btn = document.createElement('button');
-  btn.dataset.accent = key;
-  btn.title = key;
-  btn.style.background = a;
-  btn.addEventListener('click', () => window.simpleWork.setAccent(key));
-  accents.appendChild(btn);
-});
 
 COLORS.forEach((c) => {
   const b = document.createElement('button');
@@ -270,7 +222,7 @@ function renderUpdate(u, auto) {
     text = i18n.t(lang, 'updIdle', { v: cur });
   }
   updStatus.textContent = text;
-  updSub.textContent = sub || (u.latest && u.latest.notes ? u.latest.notes.split('\n')[0].slice(0, 120) : '');
+  updSub.textContent = sub; // chỉ hiện chi tiết khi lỗi; ghi chú phát hành xem trong popup cập nhật
   updBtn.textContent = btn;
   updBtn.dataset.act = act;
   updBtn.disabled = disabled;
@@ -278,28 +230,23 @@ function renderUpdate(u, auto) {
   updAuto.checked = auto !== false;
 }
 
-let framesLang = '';
-function render({ apps, version, iconLevel, lang: newLang, theme, accent, accentCustom, accentHex, palette, frame, frameCustom, update, autoCheckUpdates, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
+let looksLang = '';
+function render({ apps, version, iconLevel, lang: newLang, theme, look, lookCustom, update, autoCheckUpdates, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
   lang = newLang || 'vi';
   i18n.apply(lang, document);
-  swTheme.applyPalette(palette, document);
-  swTheme.apply(accentHex || accent, document);
-  lastCustom.accent = accentCustom || lastCustom.accent;
-  lastCustom.frame = frameCustom || lastCustom.frame;
-  if (framesLang !== lang) {
-    framesLang = lang;
-    buildFrames();
-    buildPalettes();
+  const info = swTheme.resolveTheme(look, lookCustom);
+  swTheme.applyPalette(info && info.palette, document);
+  swTheme.apply(document);
+  lastCustom.look = lookCustom || lastCustom.look;
+  if (looksLang !== lang) {
+    looksLang = lang;
+    buildLooks();
   }
-  for (const b of palettesEl.children) b.classList.toggle('on', b.dataset.palette === (palette || 'system'));
-  document.getElementById('accentMix').hidden = accent !== 'custom';
-  document.getElementById('frameMix').hidden = frame !== 'custom';
-  accentMix.set(accentCustom);
-  frameMix.set(frameCustom);
-  accentMix.paint();
-  frameMix.paint();
-  accents.querySelector('.custom').style.background = accent === 'custom' ? accentHex : '';
-  for (const b of framesEl.children) b.classList.toggle('on', b.dataset.frame === frame);
+  for (const b of looksEl.children) b.classList.toggle('on', b.dataset.look === look);
+  document.getElementById('lookMix').hidden = look !== 'custom';
+  lookMix.set(lookCustom);
+  lookMix.paint();
+  document.getElementById('modeGroup').hidden = look !== 'system'; // Tự động/Sáng/Tối chỉ có nghĩa khi theo hệ thống; chủ đề đã quy định sáng hoặc tối
   for (const b of langs.children) b.classList.toggle('on', b.dataset.lang === lang);
   if (document.activeElement !== level) level.value = iconLevel || 4;
   paintLevel();
@@ -309,7 +256,6 @@ function render({ apps, version, iconLevel, lang: newLang, theme, accent, accent
   keepBattery.checked = keepAwakeBattery !== false;
   reloadWake.checked = reloadOnWake !== false;
   for (const b of themes.children) b.classList.toggle('on', b.dataset.theme === theme);
-  for (const b of accents.children) b.classList.toggle('on', b.dataset.accent === accent);
   ver.textContent = 'v' + version;
 
   const enabledCount = apps.filter((a) => a.enabled && !a.local).length; // luôn giữ ít nhất 1 app web

@@ -1,39 +1,55 @@
-// Màu nhấn, theme khung ứng dụng và cách áp dụng cho trang (dùng chung cho tiến trình chính và các trang giao diện).
+// Chủ đề của app (dùng chung cho tiến trình chính và các trang giao diện).
+// Một chủ đề gồm hai phần áp cùng lúc: bảng màu của nền app (nền, thẻ, chữ, viền) và màu thanh bên (khung, kiểu Outlook).
 (function (root) {
-  const ACCENTS = {
-    orange: ['#f58a1f', '#ffb454'],
-    blue: ['#3B82F6', '#06b6d4'],
-    purple: ['#8b5cf6', '#c084fc'],
-    pink: ['#ec4899', '#f9a8d4'],
-    green: ['#10b981', '#6ee7b7']
-  };
+  // Màu nhấn cố định (cam). Đã bỏ tuỳ chọn đổi màu nhấn.
+  const ACCENT = '#f58a1f';
 
-  // Theme cho "khung" (thanh bên), kiểu Outlook: chỉ tô viền ứng dụng, phần nội dung giữ nguyên.
-  // css: nền thanh bên (đặc hoặc dải màu); base: màu đại diện để chọn chữ sáng/tối và tô nền cửa sổ.
-  const FRAMES = {
-    ocean: { css: 'linear-gradient(180deg, #0e4d6e, #16698a)', base: '#10597b' },
-    forest: { css: 'linear-gradient(180deg, #14442e, #2a734f)', base: '#1f5a3e' },
-    sunset: { css: 'linear-gradient(180deg, #a8330a, #b94d09)', base: '#b04009' },
-    grape: { css: 'linear-gradient(180deg, #3b1d6e, #6d3dbb)', base: '#52289a' },
-    rose: { css: 'linear-gradient(180deg, #9c1c47, #b8315f)', base: '#aa2753' },
-    graphite: { css: 'linear-gradient(180deg, #212529, #495057)', base: '#33383d' },
-    aurora: { css: 'linear-gradient(165deg, #0f2027, #1f6f80 55%, #6a45c4)', base: '#1f5266' },
-    sand: { css: 'linear-gradient(180deg, #f3ead8, #dccaa6)', base: '#e8d9bc' }
+  // palette: bg = nền trang, card = nền thẻ, rule = viền, ink = chữ chính, soft = chữ phụ (đặt token theo vai trò, theo theme.md).
+  // frame.css: nền thanh bên (đặc hoặc dải màu); frame.base: màu đại diện để chọn chữ sáng/tối và tô nền cửa sổ.
+  // Chọn một chủ đề thì ghi đè cả sáng/tối của hệ thống. Nội dung các trang web (Zalo, Teams...) không đổi.
+  const THEMES = {
+    paper: {
+      palette: { dark: false, bg: '#f4f1ea', card: '#fffdf8', rule: '#e3dccd', ink: '#1d2230', soft: '#5d6272' },
+      frame: { css: 'linear-gradient(180deg, #f3ead8, #dccaa6)', base: '#e8d9bc' }
+    },
+    pink: {
+      palette: { dark: false, bg: '#fbe9f1', card: '#fffafc', rule: '#f1cddd', ink: '#46203a', soft: '#85546f' },
+      frame: { css: 'linear-gradient(180deg, #9c1c47, #b8315f)', base: '#aa2753' }
+    },
+    mint: {
+      palette: { dark: false, bg: '#e6f4ec', card: '#f7fcf9', rule: '#c5e3d1', ink: '#14352a', soft: '#4d7263' },
+      frame: { css: 'linear-gradient(180deg, #14442e, #2a734f)', base: '#1f5a3e' }
+    },
+    sky: {
+      palette: { dark: false, bg: '#e8f1fb', card: '#f9fbff', rule: '#c8dcf2', ink: '#15304f', soft: '#4a6788' },
+      frame: { css: 'linear-gradient(180deg, #0e4d6e, #16698a)', base: '#10597b' }
+    },
+    sunset: {
+      palette: { dark: false, bg: '#fbeee3', card: '#fffaf5', rule: '#f2d5bd', ink: '#4a2410', soft: '#8a5b3d' },
+      frame: { css: 'linear-gradient(180deg, #a8330a, #b94d09)', base: '#b04009' }
+    },
+    grape: {
+      palette: { dark: false, bg: '#efe9fb', card: '#fbf9ff', rule: '#d9ccf2', ink: '#2a1650', soft: '#645488' },
+      frame: { css: 'linear-gradient(180deg, #3b1d6e, #6d3dbb)', base: '#52289a' }
+    },
+    noel: {
+      palette: { dark: false, bg: '#ecd9bd', card: '#fbf3e4', rule: '#d9c19a', ink: '#3a1d12', soft: '#7a5640' },
+      frame: { css: 'linear-gradient(180deg, #7a1410, #a8231b)', base: '#8f1b15' }
+    },
+    night: {
+      palette: { dark: true, bg: '#14161f', card: '#1e2130', rule: '#2f3349', ink: '#e8eaf3', soft: '#9aa0b8' },
+      frame: { css: 'linear-gradient(180deg, #0c0e15, #181b28)', base: '#11131c' }
+    },
+    aurora: {
+      palette: { dark: true, bg: '#0f1a22', card: '#172733', rule: '#26404f', ink: '#e6f3f6', soft: '#93b3bf' },
+      frame: { css: 'linear-gradient(165deg, #0f2027, #1f6f80 55%, #6a45c4)', base: '#1f5266' }
+    },
+    graphite: {
+      palette: { dark: true, bg: '#1b1d20', card: '#25282c', rule: '#3a3e44', ink: '#eceff3', soft: '#9ba2ac' },
+      frame: { css: 'linear-gradient(180deg, #212529, #495057)', base: '#33383d' }
+    }
   };
-  const FRAME_IDS = ['none', 'accent', 'custom', ...Object.keys(FRAMES)];
-
-  // Bảng màu cho các bề mặt của app (nền, thẻ, chữ, viền), theo cách đặt token theo vai trò của theme.md:
-  // bg = nền trang, card = nền thẻ, rule = viền, ink = chữ chính, soft = chữ phụ. Chọn một bảng thì ghi đè cả sáng/tối của hệ thống.
-  // Nội dung các trang web (Zalo, Teams...) không đổi.
-  const PALETTES = {
-    paper: { dark: false, bg: '#f4f1ea', card: '#fffdf8', rule: '#e3dccd', ink: '#1d2230', soft: '#5d6272' },
-    pink: { dark: false, bg: '#fbe9f1', card: '#fffafc', rule: '#f1cddd', ink: '#46203a', soft: '#85546f' },
-    mint: { dark: false, bg: '#e6f4ec', card: '#f7fcf9', rule: '#c5e3d1', ink: '#14352a', soft: '#4d7263' },
-    sky: { dark: false, bg: '#e8f1fb', card: '#f9fbff', rule: '#c8dcf2', ink: '#15304f', soft: '#4a6788' },
-    night: { dark: true, bg: '#14161f', card: '#1e2130', rule: '#2f3349', ink: '#e8eaf3', soft: '#9aa0b8' },
-    noel: { dark: false, bg: '#ecd9bd', card: '#fbf3e4', rule: '#d9c19a', ink: '#3a1d12', soft: '#7a5640' }
-  };
-  const PALETTE_IDS = ['system', ...Object.keys(PALETTES)];
+  const THEME_IDS = ['system', 'custom', ...Object.keys(THEMES)];
 
   const isHex = (s) => typeof s === 'string' && /^#[0-9a-f]{6}$/i.test(s);
 
@@ -83,24 +99,49 @@
   }
 
   // 0.1925 là điểm chữ tối (#1a1004) và chữ trắng có độ tương phản bằng nhau; trên mức này chữ tối dễ đọc hơn.
-// Ở giữa dải (màu trung bình) không chữ nào vượt quá ~4.3:1, đó là giới hạn của phép đo chứ không phải lỗi chọn.
-const isLight = (hex) => luminance(hex) > 0.1925;
+  // Ở giữa dải (màu trung bình) không chữ nào vượt quá ~4.3:1, đó là giới hạn của phép đo chứ không phải lỗi chọn.
+  const isLight = (hex) => luminance(hex) > 0.1925;
 
-  // accent: tên màu có sẵn hoặc mã '#rrggbb' (màu tự pha)
-  function accentHex(accent) {
-    if (isHex(accent)) return accent;
-    return (ACCENTS[accent] || ACCENTS.orange)[0];
+  // Chủ đề tự pha từ một màu: sắc (và độ đậm) của màu chọn quyết định bảng màu nền app, còn thanh bên lấy đúng màu đó.
+  function deriveCustom(hex) {
+    const [h, s0] = hexToHsl(hex);
+    const s = Math.max(30, Math.min(s0, 75));
+    return {
+      palette: {
+        dark: false,
+        bg: hslToHex(h, s, 95),
+        card: hslToHex(h, s, 99),
+        rule: hslToHex(h, Math.round(s * 0.8), 86),
+        ink: hslToHex(h, Math.min(s + 10, 80), 15),
+        soft: hslToHex(h, Math.round(s * 0.5), 30)
+      },
+      frame: { css: hex, base: hex }
+    };
   }
 
-  // Trả về { css, base, light } hoặc null (giữ giao diện mặc định)
-  function resolveFrame(frame, custom, accent) {
-    if (frame === 'accent') {
-      const a = accentHex(accent);
-      return { css: a, base: a, light: isLight(a) };
+  // Trả về { palette: {...}, frame: { css, base, light } } hoặc null ('system', id lạ, màu tự pha sai)
+  function resolveTheme(id, custom) {
+    const t = id === 'custom' ? (isHex(custom) ? deriveCustom(custom) : null) : THEMES[id];
+    if (!t) return null;
+    return { palette: { ...t.palette }, frame: { ...t.frame, light: isLight(t.frame.base) } };
+  }
+
+  // Chủ đề = bảng màu + màu thanh bên gộp một. Tên cũ (palette, frame) đổi sang tên mới để người dùng cũ không mất lựa chọn.
+  const OLD_FRAME = { ocean: 'sky', forest: 'mint', sunset: 'sunset', grape: 'grape', rose: 'pink', graphite: 'graphite', aurora: 'aurora', sand: 'paper' };
+  function migrateLook(data) {
+    let look = typeof data.look === 'string' ? data.look : '';
+    let custom = data.lookCustom;
+    if (!THEME_IDS.includes(look)) {
+      look = 'system';
+      if (typeof data.palette === 'string' && THEMES[data.palette]) look = data.palette;
+      else if (OLD_FRAME[data.frame]) look = OLD_FRAME[data.frame];
+      else if (data.frame === 'custom' && isHex(data.frameCustom)) {
+        look = 'custom';
+        custom = data.frameCustom;
+      }
     }
-    if (frame === 'custom' && isHex(custom)) return { css: custom, base: custom, light: isLight(custom) };
-    const f = FRAMES[frame];
-    return f ? { css: f.css, base: f.base, light: isLight(f.base) } : null;
+    if (look === 'custom' && !isHex(custom)) look = 'system'; // chọn tự pha mà không có màu thì về theo hệ thống
+    return { look, lookCustom: isHex(custom) ? custom : '#2b5cff' };
   }
 
   const rgba = (hex, a) => {
@@ -108,13 +149,13 @@ const isLight = (hex) => luminance(hex) > 0.1925;
     return `rgba(${r},${g},${b},${a})`;
   };
 
-  // Áp bảng màu lên trang. 'system' hoặc id lạ thì trả về mặc định (theo sáng/tối của hệ thống).
-  function applyPalette(id, doc) {
+  const PALETTE_VARS = ['--bg', '--band', '--card', '--text', '--muted', '--border', '--border2', '--hover', '--input', '--pill-bg', '--surface', '--surface2'];
+
+  // Áp bảng màu nền app lên trang. palette = null thì trả về mặc định (theo sáng/tối của hệ thống).
+  function applyPalette(p, doc) {
     const style = doc.documentElement.style;
-    const p = PALETTES[id];
-    const vars = ['--bg', '--band', '--card', '--text', '--muted', '--border', '--border2', '--hover', '--input', '--pill-bg', '--surface', '--surface2'];
     if (!p) {
-      vars.forEach((v) => style.removeProperty(v));
+      PALETTE_VARS.forEach((v) => style.removeProperty(v));
       style.removeProperty('color-scheme');
       return;
     }
@@ -133,15 +174,14 @@ const isLight = (hex) => luminance(hex) > 0.1925;
     style.setProperty('color-scheme', p.dark ? 'dark' : 'light');
   }
 
-  function apply(accent, doc) {
-    const a = accentHex(accent);
+  function apply(doc) {
     const style = doc.documentElement.style;
-    style.setProperty('--accent', a);
-    style.setProperty('--accent2', a); // phẳng: không dùng dải màu
-    style.setProperty('--on-accent', isLight(a) ? '#1a1004' : '#ffffff');
+    style.setProperty('--accent', ACCENT);
+    style.setProperty('--accent2', ACCENT); // phẳng: không dùng dải màu
+    style.setProperty('--on-accent', isLight(ACCENT) ? '#1a1004' : '#ffffff');
   }
 
-  // Áp theme khung cho thanh bên (phần tử #side) của trang chính
+  // Áp màu thanh bên (phần tử #side) của trang chính
   function applyFrame(frame, doc) {
     const root = doc.documentElement.style;
     const side = doc.getElementById('side');
@@ -164,7 +204,7 @@ const isLight = (hex) => luminance(hex) > 0.1925;
     side.style.setProperty('--brand', ink);
   }
 
-  const api = { ACCENTS, FRAMES, FRAME_IDS, PALETTES, PALETTE_IDS, applyPalette, isHex, hslToHex, hexToHsl, luminance, isLight, accentHex, resolveFrame, apply, applyFrame };
+  const api = { THEMES, THEME_IDS, isHex, hslToHex, hexToHsl, luminance, isLight, deriveCustom, resolveTheme, migrateLook, applyPalette, apply, applyFrame };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.swTheme = api;
 })(this);

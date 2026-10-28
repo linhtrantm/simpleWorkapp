@@ -32,14 +32,12 @@ const LOAD_TIMEOUT_MS = 10000; // quá thời gian này vẫn hiện trang dù c
 const SPLASH_MIN_MS = 1600;
 const SPLASH_MAX_MS = 10000;
 // Bảng màu người dùng chọn (null = theo sáng/tối của hệ thống)
-const paletteInfo = () => swTheme.PALETTES[settings.palette] || null;
-const bgColor = () => (paletteInfo() ? paletteInfo().bg : nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#f2f2f7');
-// Màu nhấn gửi cho các trang: tên màu có sẵn hoặc mã '#rrggbb' nếu người dùng tự pha
-const accentValue = () => (settings.accent === 'custom' ? settings.accentCustom : settings.accent);
-// Theme khung (thanh bên): null = mặc định
-const frameInfo = () => swTheme.resolveFrame(settings.frame, settings.frameCustom, accentValue());
-const windowBg = () => (frameInfo() ? frameInfo().base : bgColor());
-const cardColor = () => (paletteInfo() ? paletteInfo().card : nativeTheme.shouldUseDarkColors ? '#2c2c2e' : '#ffffff');
+const lookInfo = () => swTheme.resolveTheme(settings.look, settings.lookCustom); // { palette, frame } hoặc null
+const bgColor = () => (lookInfo() ? lookInfo().palette.bg : nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#f2f2f7');
+const windowBg = () => (lookInfo() ? lookInfo().frame.base : bgColor());
+// Chủ đề cố định sáng hoặc tối thì cả trang web cũng theo; chủ đề 'system' thì theo lựa chọn Tự động/Sáng/Tối
+const applyThemeSource = () => (nativeTheme.themeSource = lookInfo() ? (lookInfo().palette.dark ? 'dark' : 'light') : settings.theme);
+const cardColor = () => (lookInfo() ? lookInfo().palette.card : nativeTheme.shouldUseDarkColors ? '#2c2c2e' : '#ffffff');
 const USER_AGENT =
   `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`;
 
@@ -57,7 +55,7 @@ let dayTray = null;
 let dayTraySig = '';
 let dayBeatTimer = null;
 let splashView = null;
-let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', accentCustom: '#f58a1f', palette: 'system', frame: 'none', frameCustom: '#2b5cff', order: [] };
+let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', look: 'system', lookCustom: '#2b5cff', order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
@@ -159,9 +157,7 @@ function sendState() {
     canOpenExternal: !!activeId,
     load: { state: (activeId && loadState.get(activeId)) || 'ready', error: (activeId && loadError.get(activeId)) || '' },
     lang: settings.lang,
-    accent: accentValue(),
-    palette: settings.palette,
-    frame: frameInfo(),
+    look: lookInfo(),
     ui: ui()
   });
 }
@@ -172,12 +168,8 @@ function settingsState() {
     iconLevel: settings.iconLevel,
     lang: settings.lang,
     theme: settings.theme,
-    accent: settings.accent,
-    accentCustom: settings.accentCustom,
-    accentHex: accentValue(),
-    palette: settings.palette,
-    frame: settings.frame,
-    frameCustom: settings.frameCustom,
+    look: settings.look,
+    lookCustom: settings.lookCustom,
     notifySound: settings.notifySound,
     keepAwakeAc: settings.keepAwakeAc,
     keepAwakeBattery: settings.keepAwakeBattery,
@@ -394,7 +386,7 @@ function refreshHandoffOverlay() {
   const tab = tabById(activeId);
   const send = () =>
     handoffView.webContents.send('handoff:show', {
-      name: tab.name, icon: tab.icon, art: tab.art, tile: tab.tile, gradient: tab.gradient, letter: tab.letter, color: tab.color, lang: settings.lang, accent: accentValue(), palette: settings.palette
+      name: tab.name, icon: tab.icon, art: tab.art, tile: tab.tile, gradient: tab.gradient, letter: tab.letter, color: tab.color, lang: settings.lang, look: lookInfo()
     });
   win.contentView.addChildView(handoffView); // đưa lên trên các app
   if (dayView && dayOpen) win.contentView.addChildView(dayView);
@@ -603,7 +595,7 @@ async function runPerfDiagnostics(seconds = 10) {
 // Popup "Có bản cập nhật mới" kèm release note; cửa sổ riêng nên hiện được cả khi cửa sổ chính đang ẩn
 function sendUpdatePopup() {
   if (updatePopup && !updatePopup.isDestroyed() && !updatePopup.webContents.isLoading()) {
-    updatePopup.webContents.send('update:popup', { update: updater.getState(), lang: settings.lang, accent: accentValue(), palette: settings.palette });
+    updatePopup.webContents.send('update:popup', { update: updater.getState(), lang: settings.lang, look: lookInfo() });
   }
 }
 
@@ -690,8 +682,7 @@ function sendAboutData() {
   aboutWin.webContents.send('about:data', {
     version: app.getVersion() + (build ? ` (${build})` : ''),
     lang: settings.lang,
-    accent: accentValue(),
-    palette: settings.palette,
+    look: lookInfo(),
     year: new Date().getFullYear()
   });
 }
@@ -1110,8 +1101,8 @@ ipcMain.on('tabs:open-external', () => {
   if (/^https?:/.test(url)) shell.openExternal(url);
 });
 ipcMain.on('daytask:close', () => setDayOpen(false));
-// Mỗi thao tác trả về trạng thái mới, kèm ngôn ngữ và màu nhấn để trang vẽ đúng
-const dayReply = (fn) => (_e, ...args) => ({ ...fn(...args), lang: settings.lang, accent: accentValue(), palette: settings.palette });
+// Mỗi thao tác trả về trạng thái mới, kèm ngôn ngữ và bảng màu để trang vẽ đúng
+const dayReply = (fn) => (_e, ...args) => ({ ...fn(...args), lang: settings.lang, look: lookInfo() });
 ipcMain.handle('daytask:view', dayReply((date) => dayStore.view(typeof date === 'string' ? date : undefined)));
 ipcMain.handle('daytask:add', dayReply((title, date) => dayStore.add(String(title || ''), '', typeof date === 'string' ? date : undefined)));
 ipcMain.handle('daytask:move', dayReply((id, date) => dayStore.move(String(id), typeof date === 'string' ? date : undefined)));
@@ -1185,13 +1176,14 @@ ipcMain.on('settings:set-theme', (_e, theme) => {
   if (!['system', 'light', 'dark'].includes(theme)) return;
   settings.theme = theme;
   settingsStore.save(settings);
-  nativeTheme.themeSource = theme;
+  applyThemeSource();
   sendState();
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
-// Đổi màu nhấn hoặc theme khung: cập nhật ngay mọi cửa sổ; kéo thanh pha màu bắn liên tục nên lưu file có trễ
+// Đổi chủ đề: cập nhật ngay mọi cửa sổ; kéo thanh pha màu bắn liên tục nên lưu file có trễ
 let themeSaveTimer = null;
 function themeChanged() {
+  applyThemeSource();
   if (win && !win.isDestroyed()) win.setBackgroundColor(windowBg());
   for (const v of [settingsView, dayView, ...views.values()]) if (v && !v.webContents.isDestroyed()) v.setBackgroundColor(cardColor());
   sendState();
@@ -1202,31 +1194,15 @@ function themeChanged() {
   clearTimeout(themeSaveTimer);
   themeSaveTimer = setTimeout(() => settingsStore.save(settings), 300);
 }
-ipcMain.on('settings:set-accent', (_e, accent) => {
-  if (!Object.keys(swTheme.ACCENTS).includes(accent)) return;
-  settings.accent = accent;
+ipcMain.on('settings:set-look', (_e, id) => {
+  if (!swTheme.THEME_IDS.includes(id) || id === 'custom') return;
+  settings.look = id;
   themeChanged();
 });
-ipcMain.on('settings:set-accent-custom', (_e, hex) => {
+ipcMain.on('settings:set-look-custom', (_e, hex) => {
   if (!swTheme.isHex(hex)) return;
-  settings.accent = 'custom';
-  settings.accentCustom = hex.toLowerCase();
-  themeChanged();
-});
-ipcMain.on('settings:set-palette', (_e, id) => {
-  if (!swTheme.PALETTE_IDS.includes(id)) return;
-  settings.palette = id;
-  themeChanged();
-});
-ipcMain.on('settings:set-frame', (_e, frame) => {
-  if (!swTheme.FRAME_IDS.includes(frame) || frame === 'custom') return;
-  settings.frame = frame;
-  themeChanged();
-});
-ipcMain.on('settings:set-frame-custom', (_e, hex) => {
-  if (!swTheme.isHex(hex)) return;
-  settings.frame = 'custom';
-  settings.frameCustom = hex.toLowerCase();
+  settings.look = 'custom';
+  settings.lookCustom = hex.toLowerCase();
   themeChanged();
 });
 ipcMain.on('settings:set-order', (_e, ids) => {
@@ -1250,7 +1226,7 @@ app.whenReady().then(() => {
   if (webTabs().length === 0) settings.disabled = [];
   // Giữ máy thức để nhận thông báo, nhưng CHỈ khi cắm sạc (chạy pin thì để máy ngủ bình thường)
   startKeepAwakeWatch();
-  nativeTheme.themeSource = settings.theme;
+  applyThemeSource();
   nativeTheme.on('updated', () => {
     if (win && !win.isDestroyed()) win.setBackgroundColor(windowBg());
     if (settingsView) settingsView.setBackgroundColor(cardColor());

@@ -1,7 +1,7 @@
 {
   "name": "simplework",
   "productName": "simpleWork",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "simpleWork - gom Zalo, WhatsApp, Teams vào một cửa sổ",
   "main": "src/main.js",
   "author": "simplesoft",

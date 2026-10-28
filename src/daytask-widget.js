@@ -12,8 +12,8 @@ function el(tag, cls, text) {
 
 function render(v) {
   lang = v.lang || 'vi';
-  swTheme.applyPalette(v.palette, document);
-  swTheme.apply(v.accent, document);
+  swTheme.applyPalette(v.look && v.look.palette, document);
+  swTheme.apply(document);
   document.documentElement.lang = lang;
   card.textContent = '';
   card.className = v.active ? 'live' : '';

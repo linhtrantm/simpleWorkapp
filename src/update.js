@@ -4,11 +4,11 @@ let last = null;
 
 const T = (k, v) => i18n.t(lang, k, v);
 
-function render({ update: u, lang: l, accent, palette }) {
+function render({ update: u, lang: l, look }) {
   last = u;
   lang = l || 'vi';
-  swTheme.applyPalette(palette, document);
-  swTheme.apply(accent, document);
+  swTheme.applyPalette(look && look.palette, document);
+  swTheme.apply(document);
   i18n.apply(lang, document);
   if (!u.latest) return;
   const cur = u.current.version + (u.current.build ? ` (${u.current.build})` : '');
