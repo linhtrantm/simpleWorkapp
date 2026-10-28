@@ -47,13 +47,14 @@ function save() {
 }
 
 const today = () => core.localDate();
-const snapshot = () => core.view(load(), today());
+const snapshot = (date) => core.view(load(), today(), date);
 
 // Mỗi thao tác trả về trạng thái mới cho giao diện
 const api = {
-  view: () => snapshot(),
-  add: (title, note) => {
-    core.addTask(load(), { title, note, date: today() });
+  view: (date) => snapshot(date),
+  // date: ngày ghi việc (từ hôm nay trở đi), mặc định hôm nay
+  add: (title, note, date) => {
+    core.addTask(load(), { title, note, date: core.futureDate(date, today()) });
     save();
     return snapshot();
   },
@@ -72,12 +73,19 @@ const api = {
     save();
     return snapshot();
   },
-  reorder: (ids) => {
-    core.reorder(load(), today(), Array.isArray(ids) ? ids.filter((x) => typeof x === 'string') : []);
+  reorder: (ids, date) => {
+    core.reorder(load(), core.futureDate(date, today()), Array.isArray(ids) ? ids.filter((x) => typeof x === 'string') : []);
+    save();
+    return snapshot();
+  },
+  move: (id, date) => {
+    core.moveTask(load(), id, date, today());
     save();
     return snapshot();
   },
   start: (id, prev) => {
+    const t = load().tasks.find((x) => x.id === id);
+    if (t && t.date > today()) return { ...snapshot(), error: 'future' }; // việc của ngày sau chưa bắt đầu được
     const r = core.startTask(load(), id, prev);
     if (r.error) return { ...snapshot(), error: r.error };
     save();

@@ -121,6 +121,32 @@ function makeMixer(host, onPick) {
 const accentMix = makeMixer(document.getElementById('accentMix'), (c) => window.simpleWork.setAccentCustom(c));
 const frameMix = makeMixer(document.getElementById('frameMix'), (c) => window.simpleWork.setFrameCustom(c));
 const framesEl = document.getElementById('frames');
+const palettesEl = document.getElementById('palettes');
+
+// Bảng màu: ô xem trước vẽ nền, thẻ và chữ của chính bảng đó
+function buildPalettes() {
+  palettesEl.replaceChildren();
+  ['system', ...Object.keys(swTheme.PALETTES)].forEach((id) => {
+    const p = swTheme.PALETTES[id];
+    const b = document.createElement('button');
+    b.className = 'frame';
+    b.dataset.palette = id;
+    const pv = document.createElement('div');
+    pv.className = 'pv';
+    pv.style.gridTemplateColumns = '1fr';
+    if (p) {
+      pv.style.background = p.bg;
+      pv.innerHTML = `<div style="margin:8px;border-radius:6px;background:${p.card};border:1px solid ${p.rule};padding:5px 7px"><div style="height:5px;border-radius:3px;background:${p.ink};width:60%"></div><div style="height:4px;border-radius:3px;background:${p.soft};width:40%;margin-top:4px"></div></div>`;
+    } else {
+      pv.style.background = 'linear-gradient(135deg, #f2f2f7 50%, #1c1c1e 50%)';
+    }
+    const name = document.createElement('span');
+    name.textContent = i18n.t(lang, 'palette_' + id);
+    b.append(pv, name);
+    b.addEventListener('click', () => window.simpleWork.setPalette(id));
+    palettesEl.appendChild(b);
+  });
+}
 
 // Màu nhấn có sẵn + nút "tuỳ chọn" mở bộ pha màu
 {
@@ -253,16 +279,19 @@ function renderUpdate(u, auto) {
 }
 
 let framesLang = '';
-function render({ apps, version, iconLevel, lang: newLang, theme, accent, accentCustom, accentHex, frame, frameCustom, update, autoCheckUpdates, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
+function render({ apps, version, iconLevel, lang: newLang, theme, accent, accentCustom, accentHex, palette, frame, frameCustom, update, autoCheckUpdates, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
   lang = newLang || 'vi';
   i18n.apply(lang, document);
+  swTheme.applyPalette(palette, document);
   swTheme.apply(accentHex || accent, document);
   lastCustom.accent = accentCustom || lastCustom.accent;
   lastCustom.frame = frameCustom || lastCustom.frame;
   if (framesLang !== lang) {
     framesLang = lang;
     buildFrames();
+    buildPalettes();
   }
+  for (const b of palettesEl.children) b.classList.toggle('on', b.dataset.palette === (palette || 'system'));
   document.getElementById('accentMix').hidden = accent !== 'custom';
   document.getElementById('frameMix').hidden = frame !== 'custom';
   accentMix.set(accentCustom);

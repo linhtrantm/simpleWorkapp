@@ -106,4 +106,35 @@ test('màu nhấn tự pha: chữ trên nút luôn chọn bên tương phản h�
   }
 });
 
+test('mọi bảng màu: chữ chính và chữ phụ >= 4.5 trên cả nền trang và nền thẻ, viền phân biệt được với nền', () => {
+  for (const [id, p] of Object.entries(theme.PALETTES)) {
+    for (const bg of [p.bg, p.card]) {
+      assert.ok(ratio(p.ink, bg) >= 4.5, `${id}: chữ chính trên ${bg} ${ratio(p.ink, bg).toFixed(2)}`);
+      assert.ok(ratio(p.soft, bg) >= 4.5, `${id}: chữ phụ trên ${bg} ${ratio(p.soft, bg).toFixed(2)}`);
+    }
+    for (const k of ['bg', 'card', 'rule', 'ink', 'soft']) assert.ok(theme.isHex(p[k]), `${id}.${k}`);
+    assert.equal(theme.isLight(p.bg), !p.dark, `${id}: cờ dark khớp với độ sáng nền`);
+  }
+});
+
+test('danh sách bảng màu có system và khớp PALETTES', () => {
+  assert.equal(theme.PALETTE_IDS[0], 'system');
+  assert.deepEqual(theme.PALETTE_IDS.slice(1), Object.keys(theme.PALETTES));
+});
+
+test('applyPalette: ghi biến CSS khi chọn bảng, gỡ sạch khi về system hoặc id lạ', () => {
+  const props = new Map();
+  const doc = { documentElement: { style: { setProperty: (k, v) => props.set(k, v), removeProperty: (k) => props.delete(k) } } };
+  theme.applyPalette('night', doc);
+  assert.equal(props.get('--bg'), theme.PALETTES.night.bg);
+  assert.equal(props.get('--text'), theme.PALETTES.night.ink);
+  assert.equal(props.get('color-scheme'), 'dark');
+  theme.applyPalette('system', doc);
+  assert.equal(props.size, 0);
+  theme.applyPalette('paper', doc);
+  assert.equal(props.get('color-scheme'), 'light');
+  theme.applyPalette('không-có', doc);
+  assert.equal(props.size, 0);
+});
+
 console.log(`\n${passed} test đạt${process.exitCode ? ', CÓ TEST LỖI' : ''}`);

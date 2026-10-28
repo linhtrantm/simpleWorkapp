@@ -63,13 +63,24 @@
     .pref input[type=time], .pref input[type=number] { background: var(--input); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); padding: 4px 8px; font: 13px -apple-system, BlinkMacSystemFont, sans-serif; width: 84px; }
     .pref input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
     .hint { color: var(--muted); font-size: 11.5px; margin: 8px 2px 0; line-height: 1.6; }
+    #nav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+    .navbtn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border2); background: transparent; color: var(--text); font-size: 16px; line-height: 1; cursor: pointer; }
+    .navbtn:disabled { opacity: .3; cursor: default; }
+    .navbtn:not(:disabled):hover { border-color: var(--accent); }
+    .navchip { border: 1px solid var(--border2); background: transparent; color: var(--muted); border-radius: 14px; padding: 4px 11px; font: 600 12px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; }
+    .navchip:hover { color: var(--text); border-color: var(--accent); }
+    .navchip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    .navdate { background: var(--input); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); padding: 3px 8px; font: 12px -apple-system, BlinkMacSystemFont, sans-serif; }
+    .upcoming { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+    .uplabel { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
     .empty { color: var(--muted); font-size: 13px; padding: 18px 4px; }
   </style>
 </head>
 <body>
   <div class="page">
-    <h1 data-i18n="dayTask">Việc hôm nay</h1>
+    <h1 id="title">Việc hôm nay</h1>
     <div class="sub" id="sub"></div>
+    <div id="nav"></div>
     <input class="add" id="add" type="text" maxlength="200" data-i18n-placeholder="dayAddPlaceholder" placeholder="Thêm việc, gõ xong bấm Enter">
     <div id="now"></div>
     <div id="carry"></div>

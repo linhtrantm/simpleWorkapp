@@ -6,7 +6,7 @@ const theme = require('./theme');
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
 // { disabled: ['teams', ...], iconLevel: 1..6, customApps: [{ id, name, url, color }], lang: 'vi'|'en',
-// theme: 'system'|'light'|'dark', accent: orange|blue|purple|pink|green|custom (màu tự pha: accentCustom), frame: none|accent|custom|<tên theme khung> (frameCustom), order: [id...], notifySound: true|false, keepAwakeAc: true|false, keepAwakeBattery: true|false, reloadOnWake: true|false }
+// theme: 'system'|'light'|'dark', accent: orange|blue|purple|pink|green|custom (màu tự pha: accentCustom), frame: none|accent|custom|<tên theme khung> (frameCustom), palette: system|paper|pink|mint|sky|night|noel, order: [id...], notifySound: true|false, keepAwakeAc: true|false, keepAwakeBattery: true|false, reloadOnWake: true|false }
 // mặc định tất cả app đều bật
 function load() {
   try {
@@ -24,9 +24,11 @@ function load() {
       reloadOnWake: data.reloadOnWake !== false,
       autoCheckUpdates: data.autoCheckUpdates !== false,
       updateNotified: typeof data.updateNotified === 'string' ? data.updateNotified : '',
+      updateDismissed: typeof data.updateDismissed === 'string' ? data.updateDismissed : '',
       theme: ['system', 'light', 'dark'].includes(data.theme) ? data.theme : 'system',
       accent: Object.keys(theme.ACCENTS).includes(data.accent) || (data.accent === 'custom' && theme.isHex(data.accentCustom)) ? data.accent : 'orange',
       accentCustom: theme.isHex(data.accentCustom) ? data.accentCustom : '#f58a1f',
+      palette: theme.PALETTE_IDS.includes(data.palette) ? data.palette : 'system',
       frame: theme.FRAME_IDS.includes(data.frame) && !(data.frame === 'custom' && !theme.isHex(data.frameCustom)) ? data.frame : 'none',
       frameCustom: theme.isHex(data.frameCustom) ? data.frameCustom : '#2b5cff',
       order: Array.isArray(data.order) ? data.order.filter((x) => typeof x === 'string') : [],
@@ -35,7 +37,7 @@ function load() {
         : []
     };
   } catch {
-    return { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', accentCustom: '#f58a1f', frame: 'none', frameCustom: '#2b5cff', order: [], notifySound: true, keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '' };
+    return { disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', accent: 'orange', accentCustom: '#f58a1f', palette: 'system', frame: 'none', frameCustom: '#2b5cff', order: [], notifySound: true, keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', updateDismissed: '' };
   }
 }
 

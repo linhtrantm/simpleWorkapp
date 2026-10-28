@@ -15,10 +15,27 @@ function parseRelease(json) {
     version,
     build: Number(build),
     tag: typeof json.tag_name === 'string' ? json.tag_name : '',
+    url: typeof json.html_url === 'string' && /^https:\/\//.test(json.html_url) ? json.html_url : '',
     notes: typeof json.body === 'string' ? json.body.slice(0, 2000) : '',
     dmg: { name: dmg.name, url: dmg.browser_download_url, size: Number.isFinite(dmg.size) ? dmg.size : 0 },
     sha: sha ? { url: sha.browser_download_url } : null
   };
+}
+
+// Ghi chú phát hành (markdown) thành danh sách dòng ngắn để hiện trong popup: bỏ #, **, `, dấu gạch đầu dòng và dòng trống
+function cleanNotes(body, max = 12) {
+  const lines = [];
+  for (const raw of String(body || '').split(/\r?\n/)) {
+    const line = raw
+      .replace(/^\s{0,3}#{1,6}\s*/, '')
+      .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '')
+      .replace(/(\*\*|__|`)/g, '')
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .trim();
+    if (line) lines.push(line.length > 160 ? line.slice(0, 159) + '…' : line);
+    if (lines.length >= max) break;
+  }
+  return lines;
 }
 
 function semver(v) {
@@ -91,4 +108,4 @@ echo "xong"
 `;
 }
 
-module.exports = { DMG_RE, parseRelease, isNewer, parseSha, installScript };
+module.exports = { DMG_RE, cleanNotes, parseRelease, isNewer, parseSha, installScript };

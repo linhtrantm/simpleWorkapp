@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('dayTask', {
   openPage: () => ipcRenderer.send('daytask:open'),
   widgetSize: (h) => ipcRenderer.send('daytask:widget-size', h),
   widgetHide: () => ipcRenderer.send('daytask:widget-hide'),
+  move: call('move'),
   start: call('start'),
   pause: call('pause'),
   done: call('done'),

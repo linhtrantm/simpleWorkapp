@@ -8,7 +8,8 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') window.simpleWork.releaseHandoff();
 });
 
-window.simpleWork.onHandoff(({ name, icon, art, tile, gradient, letter, color, lang, accent }) => {
+window.simpleWork.onHandoff(({ name, icon, art, tile, gradient, letter, color, lang, accent, palette }) => {
+  swTheme.applyPalette(palette, document);
   swTheme.apply(accent, document);
   i18n.apply(lang, document);
   ico.replaceChildren(swIcon.node({ icon, art, tile, gradient, letter, color, name }));

@@ -311,11 +311,39 @@ function skipCarry(data, today) {
 }
 
 // Trạng thái gửi cho giao diện
-function view(data, today) {
-  const mine = data.tasks.filter((t) => t.date === today);
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Ngày hợp lệ để ghi việc: từ hôm nay trở đi. Ngày sai hoặc đã qua thì về hôm nay.
+function futureDate(date, today) {
+  return DATE_RE.test(date || '') && date >= today ? date : today;
+}
+
+// Dời một việc chưa xong sang ngày khác (từ hôm nay trở đi). Việc đang làm thì không dời.
+function moveTask(data, id, date, today) {
+  const task = find(data, id);
+  if (!task || task.status === 'done' || (data.active && data.active.taskId === id)) return null;
+  const day = futureDate(date, today);
+  if (task.date === day) return task;
+  task.date = day;
+  task.order = nextOrder(data, day);
+  return task;
+}
+
+// Các ngày sau hôm nay đã có việc chưa xong: [{ date, count }] theo thứ tự ngày
+function upcoming(data, today) {
+  const per = new Map();
+  for (const t of data.tasks) if (t.date > today && t.status !== 'done') per.set(t.date, (per.get(t.date) || 0) + 1);
+  return [...per.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(0, 30).map(([date, count]) => ({ date, count }));
+}
+
+// date: ngày đang xem (mặc định hôm nay). Chỉ cho xem từ hôm nay trở đi.
+function view(data, today, date) {
+  const day = futureDate(date, today);
+  const isToday = day === today;
+  const mine = data.tasks.filter((t) => t.date === day);
   const todo = mine.filter((t) => t.status !== 'done').sort((a, b) => a.order - b.order);
   const done = mine.filter((t) => t.status === 'done').sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0));
-  const carry = carryCandidates(data, today);
+  const carry = isToday ? carryCandidates(data, today) : []; // việc dở chỉ hỏi dồn khi xem hôm nay
   const now = Date.now();
   const withTime = (t) => ({
     ...t,
@@ -325,6 +353,9 @@ function view(data, today) {
   const act = data.active && find(data, data.active.taskId);
   return {
     today,
+    date: day,
+    isToday,
+    upcoming: upcoming(data, today),
     todo: todo.map(withTime),
     done: done.map(withTime),
     active: act ? { id: act.id, title: act.title } : null,
@@ -343,5 +374,5 @@ module.exports = {
   localDate, emptyData, normalize, addTask, updateTask, removeTask, toggleTask, reorder,
   DEFAULT_PREFS, cleanPrefs, setPrefs, addTemplate, removeTemplate, generateRecurring, summary, weekday,
   startTask, pauseActive, doneActive, beat, recover, trackedMs,
-  carryCandidates, carryOver, skipCarry, view
+  futureDate, moveTask, upcoming, carryCandidates, carryOver, skipCarry, view
 };

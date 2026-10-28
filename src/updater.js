@@ -8,12 +8,19 @@ const { spawn } = require('child_process');
 const core = require('./updater-core');
 
 const API = process.env.SW_UPDATE_URL || 'https://api.github.com/repos/linhtrantm/simpleWorkapp/releases/latest';
-const FIRST_CHECK_MS = 30 * 1000;
-const EVERY_MS = 6 * 60 * 60 * 1000;
+// Hỏi GitHub mỗi 30 giây bằng yêu cầu có điều kiện (ETag): không có bản mới thì GitHub trả 304 và 304 không tính vào giới hạn 60 lượt/giờ,
+// nên thấy bản mới trong vòng ~30 giây mà không tốn hạn mức. Gặp 403/429 thì tạm nghỉ tới giờ GitHub cho phép.
+const POLL_MS = Number(process.env.SW_UPDATE_POLL_MS) || 30 * 1000;
+const FIRST_CHECK_MS = Number(process.env.SW_UPDATE_FIRST_MS) || 3 * 1000;
 
-let ctx = null; // { settings: () => settings, save, buildNumber, T, notify(title, body), onState(state), quit }
+let ctx = null; // { settings, save, buildNumber, T, showPopup(), onState(state), quit }
+const popupShown = new Set(); // phiên bản đã hiện popup trong lần chạy này
 let timer = null;
 let busy = false;
+let etag = null;
+let cachedJson = null;
+let blockedUntil = 0;
+let lastCheck = 0;
 let latest = null; // bản phát hành mới nhất đã parse (nếu mới hơn bản đang chạy)
 let dmgPath = null; // file dmg đã tải và kiểm hash xong
 let state = { status: 'idle', current: { version: '', build: null }, latest: null, progress: 0, error: '', canInstall: false };
@@ -40,10 +47,21 @@ function set(patch) {
 }
 
 async function getJson(url) {
-  const res = await net.fetch(url, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'simpleWork-updater' }, signal: AbortSignal.timeout(15000) });
+  const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'simpleWork-updater' };
+  if (etag && cachedJson) headers['If-None-Match'] = etag;
+  const res = await net.fetch(url, { headers, signal: AbortSignal.timeout(15000) });
+  if (res.status === 304) return cachedJson; // chưa có gì mới, không tốn hạn mức
   if (res.status === 404) return null; // chưa có release nào
+  if (res.status === 403 || res.status === 429) {
+    const retry = Number(res.headers.get('retry-after'));
+    const reset = Number(res.headers.get('x-ratelimit-reset'));
+    blockedUntil = Date.now() + (retry ? retry * 1000 : reset ? Math.max(0, reset * 1000 - Date.now()) : 10 * 60 * 1000);
+    throw new Error('GitHub đang giới hạn lượt hỏi, thử lại sau');
+  }
   if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+  cachedJson = await res.json();
+  etag = res.headers.get('etag');
+  return cachedJson;
 }
 
 // Chỉ nhận https (trừ khi đang test với SW_UPDATE_URL)
@@ -104,8 +122,9 @@ function cleanup(keep) {
 }
 
 async function check({ manual = false } = {}) {
-  if (busy) return state;
+  if (busy || (!manual && Date.now() < blockedUntil)) return state;
   busy = true;
+  lastCheck = Date.now();
   try {
     set({ status: 'checking', error: '' });
     const rel = core.parseRelease(await getJson(API));
@@ -116,21 +135,24 @@ async function check({ manual = false } = {}) {
       return state;
     }
     latest = rel;
-    const info = { version: rel.version, build: rel.build, notes: rel.notes };
+    const info = { version: rel.version, build: rel.build, notes: rel.notes, lines: core.cleanNotes(rel.notes), url: rel.url };
+    // Popup hiện ngay khi thấy bản mới (kèm release note), việc tải chạy tiếp ở nền và popup cập nhật tiến độ.
+    // Người dùng đã bấm "Để sau" cho bản này thì không hiện lại, trừ khi tự bấm Kiểm tra.
+    const popup = manual || (!popupShown.has(rel.version) && ctx.settings().updateDismissed !== rel.version);
+    if (popup) {
+      popupShown.add(rel.version);
+      ctx.showPopup();
+    }
     if (!appBundle()) {
       set({ status: 'available', latest: info }); // chạy từ npm start hoặc app ở nơi không ghi được: chỉ báo
       return state;
     }
+    if (state.status === 'ready' && state.latest && state.latest.version === rel.version) return state; // đã tải rồi
     set({ status: 'downloading', latest: info, progress: 0 });
+    if (popup) ctx.showPopup();
     dmgPath = await download(rel);
     cleanup(path.basename(dmgPath));
     set({ status: 'ready', latest: info, progress: 100 });
-    const s = ctx.settings();
-    if (s.updateNotified !== rel.version) {
-      s.updateNotified = rel.version;
-      ctx.save();
-      ctx.notify(ctx.T('updNotifyTitle'), ctx.T('updNotifyBody', { v: rel.version }));
-    }
   } catch (err) {
     // lỗi mạng khi tự kiểm tra thì im lặng, chỉ báo khi người dùng chủ động bấm
     set(manual ? { status: 'error', error: String(err.message || err) } : { status: state.latest ? 'available' : 'idle' });
@@ -153,7 +175,19 @@ function install() {
 
 function schedule() {
   clearInterval(timer);
-  timer = setInterval(() => ctx.settings().autoCheckUpdates !== false && check(), EVERY_MS);
+  timer = setInterval(() => ctx.settings().autoCheckUpdates !== false && check(), POLL_MS);
+}
+
+// Người dùng bấm "Để sau": nhớ bản này để không hiện popup lại
+function dismiss() {
+  if (!state.latest) return;
+  ctx.settings().updateDismissed = state.latest.version;
+  ctx.save();
+}
+
+// Gọi khi mở lại cửa sổ hoặc máy thức dậy: hỏi ngay thay vì đợi nhịp kế tiếp (cách nhau tối thiểu 10 giây)
+function nudge() {
+  if (ctx && ctx.settings().autoCheckUpdates !== false && Date.now() - lastCheck > 10 * 1000) check();
 }
 
 function init(c) {
@@ -163,4 +197,4 @@ function init(c) {
   schedule();
 }
 
-module.exports = { init, check, install, getState: () => state };
+module.exports = { init, check, install, dismiss, nudge, getState: () => state };

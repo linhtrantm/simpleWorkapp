@@ -380,4 +380,79 @@ test('tạm dừng tại thời điểm trong quá khứ (máy im): phiên kết
   assert.equal(core.trackedMs(b.data, b.tasks[0].id), 0);
 });
 
+test('futureDate: chỉ nhận ngày từ hôm nay trở đi, sai hoặc đã qua thì về hôm nay', () => {
+  assert.equal(core.futureDate('2026-10-26', '2026-10-25'), '2026-10-26');
+  assert.equal(core.futureDate('2026-10-25', '2026-10-25'), '2026-10-25');
+  assert.equal(core.futureDate('2026-10-24', '2026-10-25'), '2026-10-25');
+  for (const bad of ['', 'mai', null, undefined, '2026-1-1']) assert.equal(core.futureDate(bad, '2026-10-25'), '2026-10-25');
+});
+
+test('việc cho ngày mai không lẫn vào hôm nay, xem ngày mai thấy đúng việc của ngày đó', () => {
+  const data = core.emptyData();
+  core.addTask(data, { title: 'hôm nay', date: D('2026-10-25') });
+  core.addTask(data, { title: 'mai 1', date: D('2026-10-26') });
+  core.addTask(data, { title: 'mai 2', date: D('2026-10-26') });
+  core.addTask(data, { title: 'tuần sau', date: D('2026-11-02') });
+  const t = core.view(data, D('2026-10-25'));
+  assert.deepEqual(t.todo.map((x) => x.title), ['hôm nay']);
+  assert.equal(t.isToday, true);
+  const m = core.view(data, D('2026-10-25'), D('2026-10-26'));
+  assert.deepEqual(m.todo.map((x) => x.title), ['mai 1', 'mai 2']);
+  assert.equal(m.isToday, false);
+  assert.equal(m.date, '2026-10-26');
+  assert.deepEqual(m.stats, { total: 2, done: 0 });
+  assert.deepEqual(t.upcoming, [{ date: '2026-10-26', count: 2 }, { date: '2026-11-02', count: 1 }]);
+});
+
+test('xem ngày đã qua hoặc ngày sai: về hôm nay', () => {
+  const data = core.emptyData();
+  core.addTask(data, { title: 'hôm qua', date: D('2026-10-24') });
+  core.addTask(data, { title: 'hôm nay', date: D('2026-10-25') });
+  assert.equal(core.view(data, D('2026-10-25'), D('2026-10-24')).date, '2026-10-25');
+  assert.equal(core.view(data, D('2026-10-25'), 'rác').date, '2026-10-25');
+});
+
+test('xem ngày tương lai: không hỏi dồn việc dở dù hôm nay còn việc dở', () => {
+  const data = core.emptyData();
+  core.addTask(data, { title: 'dở', date: D('2026-10-24') });
+  assert.equal(core.view(data, D('2026-10-25')).carry.ask, true);
+  const m = core.view(data, D('2026-10-25'), D('2026-10-26'));
+  assert.equal(m.carry.ask, false);
+  assert.equal(m.carry.count, 0);
+});
+
+test('sang ngày hôm sau: việc đã ghi cho ngày đó tự thành việc hôm nay, đứng sau việc có sẵn', () => {
+  const data = core.emptyData();
+  core.addTask(data, { title: 'ghi trước', date: D('2026-10-26') });
+  core.addTask(data, { title: 'sẵn có', date: D('2026-10-26') });
+  const v = core.view(data, D('2026-10-26'));
+  assert.deepEqual(v.todo.map((x) => x.title), ['ghi trước', 'sẵn có']);
+  assert.deepEqual(v.upcoming, []);
+});
+
+test('đổi thứ tự trong ngày tương lai không đụng việc ngày khác', () => {
+  const data = core.emptyData();
+  const a = core.addTask(data, { title: 'A', date: D('2026-10-26') });
+  const b = core.addTask(data, { title: 'B', date: D('2026-10-26') });
+  const today = core.addTask(data, { title: 'H', date: D('2026-10-25') });
+  core.reorder(data, D('2026-10-26'), [b.id, a.id]);
+  assert.deepEqual(core.view(data, D('2026-10-25'), D('2026-10-26')).todo.map((x) => x.title), ['B', 'A']);
+  assert.equal(today.order, 0);
+});
+
+test('dời việc: sang ngày khác xếp cuối, việc đã xong và việc đang làm không dời được, ngày đã qua về hôm nay', () => {
+  const data = core.emptyData();
+  const a = core.addTask(data, { title: 'A', date: D('2026-10-26') });
+  core.addTask(data, { title: 'sẵn', date: D('2026-10-25') });
+  assert.ok(core.moveTask(data, a.id, D('2026-10-25'), D('2026-10-25')));
+  assert.deepEqual(core.view(data, D('2026-10-25')).todo.map((x) => x.title), ['sẵn', 'A']);
+  assert.equal(core.moveTask(data, a.id, D('2026-10-20'), D('2026-10-25')).date, '2026-10-25');
+  core.startTask(data, a.id, undefined, T0);
+  assert.equal(core.moveTask(data, a.id, D('2026-10-27'), D('2026-10-25')), null);
+  const d = core.addTask(data, { title: 'D', date: D('2026-10-25') });
+  core.toggleTask(data, d.id);
+  assert.equal(core.moveTask(data, d.id, D('2026-10-27'), D('2026-10-25')), null);
+  assert.equal(core.moveTask(data, 'khong-co', D('2026-10-27'), D('2026-10-25')), null);
+});
+
 console.log(`\n${passed} test đạt${process.exitCode ? ', CÓ TEST LỖI' : ''}`);

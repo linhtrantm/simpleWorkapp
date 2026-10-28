@@ -97,6 +97,25 @@ test('installScript: pid rác không chèn được lệnh', () => {
   assert.ok(!s.includes('rm -rf /\n'));
 });
 
+test('cleanNotes: bỏ #, **, `, gạch đầu dòng, dòng trống; giữ nội dung; cắt dòng dài và số dòng', () => {
+  const body = '## Có gì mới\n\n- **Việc hôm nay**: ghi việc cho ngày mai\n* Sửa `lỗi` chớp màu\n1. Mục số\n\n[xem thêm](https://x.y/z)\n';
+  assert.deepEqual(core.cleanNotes(body), ['Có gì mới', 'Việc hôm nay: ghi việc cho ngày mai', 'Sửa lỗi chớp màu', 'Mục số', 'xem thêm']);
+  assert.deepEqual(core.cleanNotes(''), []);
+  assert.deepEqual(core.cleanNotes(null), []);
+  assert.equal(core.cleanNotes('x'.repeat(500))[0].length, 160);
+  assert.equal(core.cleanNotes(Array.from({ length: 40 }, (_, i) => 'dòng ' + i).join('\n')).length, 12);
+});
+
+test('cleanNotes: thẻ HTML trong ghi chú chỉ là chữ thường (popup dùng textContent), không bị diễn giải', () => {
+  assert.deepEqual(core.cleanNotes('<img src=x onerror=alert(1)>'), ['<img src=x onerror=alert(1)>']);
+});
+
+test('parseRelease lấy html_url https làm trang tải, bỏ url không phải https', () => {
+  assert.equal(core.parseRelease(release({ html_url: 'https://github.com/a/b/releases/tag/v1' })).url, 'https://github.com/a/b/releases/tag/v1');
+  assert.equal(core.parseRelease(release({ html_url: 'javascript:alert(1)' })).url, '');
+  assert.equal(core.parseRelease(release()).url, '');
+});
+
 // ---- Chạy script thật trên thư mục tạm (không đụng /Applications) ----
 function sandbox(version) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sw-upd-'));

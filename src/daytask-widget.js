@@ -12,6 +12,7 @@ function el(tag, cls, text) {
 
 function render(v) {
   lang = v.lang || 'vi';
+  swTheme.applyPalette(v.palette, document);
   swTheme.apply(v.accent, document);
   document.documentElement.lang = lang;
   card.textContent = '';

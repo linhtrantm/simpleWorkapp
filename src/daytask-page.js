@@ -3,6 +3,7 @@ const addEl = $('add');
 let lang = 'vi';
 let state = null;
 let choosing = null; // id việc định bắt đầu khi đang có việc khác chạy
+let selDate = null; // ngày đang xem (null = hôm nay)
 
 const mins = (ms) => Math.max(0, Math.round(ms / 60000));
 
@@ -15,6 +16,26 @@ function el(tag, cls, text) {
   return e;
 }
 
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const parse = (s) => {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+const shift = (s, n) => {
+  const d = parse(s);
+  d.setDate(d.getDate() + n);
+  return ymd(d);
+};
+const DAY_KEYS = ['dayD0', 'dayD1', 'dayD2', 'dayD3', 'dayD4', 'dayD5', 'dayD6'];
+// "Hôm nay", "Ngày mai 26/10", hoặc "T6 31/10"
+function dateLabel(date, today) {
+  const d = parse(date);
+  const short = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  if (date === today) return T('dayTodayShort');
+  if (date === shift(today, 1)) return `${T('dayTomorrow')} ${short}`;
+  return `${T(DAY_KEYS[d.getDay()])} ${short}`;
+}
+
 function row(task) {
   const r = el('div', 'row' + (task.status === 'done' ? ' done' : ''));
   r.dataset.id = task.id;
@@ -24,9 +45,11 @@ function row(task) {
     r.addEventListener('dragend', () => (r.draggable = false));
     r.appendChild(g);
   }
-  const tick = el('button', 'tick');
-  tick.addEventListener('click', () => apply(window.dayTask.toggle(task.id)));
-  r.appendChild(tick);
+  if (state.isToday) {
+    const tick = el('button', 'tick');
+    tick.addEventListener('click', () => apply(window.dayTask.toggle(task.id)));
+    r.appendChild(tick);
+  }
   const title = el('div', 'title', task.title);
   if (task.status !== 'done') {
     title.contentEditable = 'plaintext-only';
@@ -44,7 +67,13 @@ function row(task) {
   }
   r.appendChild(title);
   if (task.carriedFrom) r.appendChild(el('span', 'tag', T('dayCarried', { date: task.carriedFrom.slice(5).replace('-', '/') })));
-  if (task.state === 'doing') {
+  if (!state.isToday) {
+    // việc của ngày sau: chưa bắt đầu hay tick được, chỉ sửa, đổi thứ tự, xoá hoặc dời về hôm nay
+    const move = el('button', 'play', T('dayMoveToday'));
+    move.style.opacity = 1;
+    move.addEventListener('click', () => apply(window.dayTask.move(task.id)));
+    r.appendChild(move);
+  } else if (task.state === 'doing') {
     r.classList.add('doing');
     r.appendChild(el('span', 'tag live', T('dayNowTag')));
   } else if (task.status !== 'done') {
@@ -60,7 +89,6 @@ function row(task) {
   return r;
 }
 
-const DAY_KEYS = ['dayD0', 'dayD1', 'dayD2', 'dayD3', 'dayD4', 'dayD5', 'dayD6'];
 const newDays = new Set([1, 2, 3, 4, 5]); // mẫu mới mặc định thứ Hai tới thứ Sáu
 const PREFS = [
   ['morningOn', 'dayPrefMorning', 'morningTime'],
@@ -130,8 +158,48 @@ function renderPrefs(s) {
   });
 }
 
+function renderNav(s) {
+  const nav = $('nav');
+  nav.textContent = '';
+  const go = (d) => {
+    selDate = d === s.today ? null : d;
+    choosing = null;
+    refresh();
+  };
+  const prev = el('button', 'navbtn', '‹');
+  prev.disabled = s.isToday;
+  prev.addEventListener('click', () => go(shift(s.date, -1)));
+  const next = el('button', 'navbtn', '›');
+  next.addEventListener('click', () => go(shift(s.date, 1)));
+  const today = el('button', 'navchip' + (s.isToday ? ' on' : ''), T('dayTodayShort'));
+  today.addEventListener('click', () => go(s.today));
+  const tomorrow = el('button', 'navchip' + (s.date === shift(s.today, 1) ? ' on' : ''), T('dayTomorrow'));
+  tomorrow.addEventListener('click', () => go(shift(s.today, 1)));
+  const pick = el('input', 'navdate');
+  pick.type = 'date';
+  pick.min = s.today;
+  pick.value = s.date;
+  pick.title = T('dayPickDate');
+  pick.addEventListener('change', () => pick.value && go(pick.value >= s.today ? pick.value : s.today));
+  nav.append(prev, today, tomorrow, next, pick);
+  if (s.upcoming.length) {
+    const up = el('div', 'upcoming');
+    up.appendChild(el('span', 'uplabel', T('dayUpcoming')));
+    s.upcoming.slice(0, 6).forEach((u) => {
+      const chip = el('button', 'navchip' + (u.date === s.date ? ' on' : ''), `${dateLabel(u.date, s.today)} · ${u.count}`);
+      chip.addEventListener('click', () => go(u.date));
+      up.appendChild(chip);
+    });
+    nav.appendChild(up);
+  }
+}
+
 function render() {
   const s = state;
+  const dl = dateLabel(s.date, s.today);
+  $('title').textContent = s.isToday ? T('dayTask') : T('dayTitleDate', { d: s.date === shift(s.today, 1) ? dl.charAt(0).toLowerCase() + dl.slice(1) : dl }); // "Việc ngày mai 29/10"
+  addEl.placeholder = s.isToday ? T('dayAddPlaceholder') : T('dayAddFuture', { d: dateLabel(s.date, s.today) });
+  renderNav(s);
   $('sub').textContent = T('dayTaskSub', { done: s.stats.done, total: s.stats.total });
   const carry = $('carry');
   carry.textContent = '';
@@ -148,7 +216,7 @@ function render() {
   }
   const now = $('now');
   now.textContent = '';
-  if (s.active) {
+  if (s.active && s.isToday) {
     const t = s.todo.find((x) => x.id === s.active.id);
     const box = el('div', 'now');
     box.appendChild(el('small', '', T('dayNowTag') + (t && t.trackedMs >= 60000 ? ' · ' + T('dayMinutes', { min: mins(t.trackedMs) }) : '')));
@@ -180,7 +248,7 @@ function render() {
       todo.appendChild(box);
     }
   });
-  if (!s.todo.length) todo.appendChild(el('div', 'empty', s.stats.total ? T('dayAllDone') : T('dayEmpty')));
+  if (!s.todo.length) todo.appendChild(el('div', 'empty', s.stats.total ? T('dayAllDone') : s.isToday ? T('dayEmpty') : T('dayEmptyFuture')));
   const done = $('done');
   done.textContent = '';
   s.done.forEach((t) => done.appendChild(row(t)));
@@ -207,29 +275,28 @@ $('todo').addEventListener('dragend', async () => {
   if (!dragging) return;
   dragging.classList.remove('dragging');
   dragging = null;
-  apply(await window.dayTask.reorder([...$('todo').querySelectorAll('.row')].map((r) => r.dataset.id)));
+  apply(window.dayTask.reorder([...$('todo').querySelectorAll('.row')].map((r) => r.dataset.id), selDate || undefined));
 });
 
 async function start(id, prev) {
   const v = await window.dayTask.start(id, prev);
   choosing = v.error === 'busy' ? id : null; // đang có việc khác chạy: hỏi tạm dừng hay Done
-  state = v;
-  render();
+  await refresh();
 }
 
+// Mọi thao tác xong thì lấy lại danh sách của ngày đang xem
 async function apply(p) {
-  const v = await p;
-  if (v) {
-    state = v;
-    render();
-  }
+  await p;
+  await refresh();
 }
 
 async function refresh() {
-  const v = await window.dayTask.view();
+  const v = await window.dayTask.view(selDate || undefined);
   lang = v.lang || 'vi';
   i18n.apply(lang, document);
+  swTheme.applyPalette(v.palette, document);
   swTheme.apply(v.accent, document);
+  if (selDate && v.date !== selDate) selDate = v.date === v.today ? null : v.date; // ngày đã qua (sang ngày mới) thì về hôm nay
   state = v;
   render();
 }
@@ -250,13 +317,13 @@ addEl.addEventListener('keydown', (e) => {
   const v = addEl.value.trim();
   if (!v) return;
   addEl.value = '';
-  apply(window.dayTask.add(v));
+  apply(window.dayTask.add(v, selDate || undefined));
 });
 
 window.dayTask.onChanged(() => refresh()); // menu bar hoặc nơi khác đổi dữ liệu
 setInterval(() => {
   const typing = document.activeElement && (['INPUT'].includes(document.activeElement.tagName) || document.activeElement.classList.contains('title'));
-  if (state && state.active && !typing) refresh(); // cập nhật số phút
+  if (state && (state.active || state.date !== state.today) && !typing) refresh(); // cập nhật số phút và phát hiện qua ngày mới
 }, 30000);
 window.dayTask.onShown(() => {
   refresh();

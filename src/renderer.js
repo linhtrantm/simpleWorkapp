@@ -104,10 +104,11 @@ function render(state) {
   const handedOff = new Set(state.handoff || []);
   lang = state.lang || 'vi';
   i18n.apply(lang, document);
+  swTheme.applyPalette(state.palette, document);
   swTheme.apply(state.accent, document);
   swTheme.applyFrame(state.frame, document);
   try {
-    localStorage.setItem('sw.look', JSON.stringify({ accent: state.accent, frame: state.frame })); // để lần mở sau áp ngay, khỏi chớp
+    localStorage.setItem('sw.look', JSON.stringify({ accent: state.accent, frame: state.frame, palette: state.palette })); // để lần mở sau áp ngay, khỏi chớp
   } catch {}
 
   const root = document.documentElement.style;
