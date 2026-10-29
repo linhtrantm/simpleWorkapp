@@ -4,7 +4,7 @@
 // active: { taskId, sessionId, lastBeat } | null — việc đang làm (chỉ một). lastBeat để biết app còn sống tới lúc nào.
 // Template: { id, title, days: [0..6] (0 = Chủ nhật), lastGen: 'YYYY-MM-DD' } — việc lặp lại, tự sinh ra việc mỗi ngày đúng thứ.
 // meta: { lastCarryPrompt, lastMorning, lastSummary, widgetPos, prefs }
-// Task: { id, title, note, date: 'YYYY-MM-DD', status: 'todo'|'done', order, createdAt, completedAt, carriedFrom }
+// Task: { id, title, note (mô tả chi tiết, nhiều dòng), date: 'YYYY-MM-DD', status: 'todo'|'done', order, createdAt, completedAt, carriedFrom }
 'use strict';
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -38,6 +38,9 @@ function cleanPrefs(p, base) {
   return out;
 }
 
+// Mô tả chi tiết: giữ xuống dòng (chuẩn hoá \r\n, bỏ ký tự điều khiển trừ xuống dòng và tab), cắt độ dài
+const NOTE_MAX = 5000;
+const cleanText = (s, max) => String(s == null ? '' : s).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').slice(0, max);
 const clean = (s, max) => String(s == null ? '' : s).replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
 // Đọc dữ liệu lưu trên đĩa, bỏ các mục hỏng thay vì làm hỏng cả file
@@ -72,7 +75,7 @@ function normalize(raw) {
     data.tasks.push({
       id: t.id,
       title,
-      note: clean(t.note, 500),
+      note: cleanText(t.note, NOTE_MAX),
       date: t.date,
       status: STATUSES.includes(t.status) ? t.status : 'todo',
       order: Number.isFinite(t.order) ? t.order : 0,
@@ -102,7 +105,7 @@ function addTask(data, { title, note, date }, now = Date.now(), id) {
   const task = {
     id: id || `t${now.toString(36)}${Math.random().toString(36).slice(2, 7)}`,
     title: t,
-    note: clean(note, 500),
+    note: cleanText(note, NOTE_MAX),
     date: day,
     status: 'todo',
     order: nextOrder(data, day),
@@ -122,7 +125,7 @@ function updateTask(data, id, patch = {}) {
     const t = clean(patch.title, 200);
     if (t) task.title = t; // tiêu đề rỗng thì giữ nguyên
   }
-  if (patch.note !== undefined) task.note = clean(patch.note, 500);
+  if (patch.note !== undefined) task.note = cleanText(patch.note, NOTE_MAX);
   return task;
 }
 

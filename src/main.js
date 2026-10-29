@@ -1164,7 +1164,7 @@ const dayReply = (fn) => (_e, ...args) => ({ ...fn(...args), lang: settings.lang
 ipcMain.handle('daytask:view', dayReply((date) => dayStore.view(typeof date === 'string' ? date : undefined)));
 ipcMain.handle('daytask:add', dayReply((title, date) => dayStore.add(String(title || ''), '', typeof date === 'string' ? date : undefined)));
 ipcMain.handle('daytask:move', dayReply((id, date) => dayStore.move(String(id), typeof date === 'string' ? date : undefined)));
-ipcMain.handle('daytask:update', dayReply((id, patch) => dayStore.update(String(id), { title: patch && patch.title })));
+ipcMain.handle('daytask:update', dayReply((id, patch) => dayStore.update(String(id), { title: patch && patch.title, note: patch && typeof patch.note === 'string' ? patch.note : undefined })));
 ipcMain.handle('daytask:remove', dayReply((id) => dayStore.remove(String(id))));
 ipcMain.handle('daytask:toggle', dayReply((id) => dayStore.toggle(String(id))));
 ipcMain.handle('daytask:reorder', dayReply((ids, date) => dayStore.reorder(ids, typeof date === 'string' ? date : undefined)));

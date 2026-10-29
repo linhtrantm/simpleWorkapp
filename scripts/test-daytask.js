@@ -17,6 +17,24 @@ function test(name, fn) {
 const D = (s) => s; // ngày cho dễ đọc
 const T0 = Date.UTC(2026, 9, 25, 3, 0, 0);
 
+test('mô tả chi tiết: giữ xuống dòng, bỏ ký tự điều khiển, cắt 5000, sửa được, đọc lại từ đĩa', () => {
+  const data = core.emptyData();
+  const t = core.addTask(data, { title: 'A', date: D('2026-10-25') });
+  assert.equal(t.note, '');
+  core.updateTask(data, t.id, { note: 'dòng 1\r\ndòng 2\n\n- ý 3\u0000\u0007' });
+  assert.equal(t.note, 'dòng 1\ndòng 2\n\n- ý 3');
+  core.updateTask(data, t.id, { note: 'x'.repeat(6000) });
+  assert.equal(t.note.length, 5000);
+  core.updateTask(data, t.id, { title: 'B' });
+  assert.equal(t.note.length, 5000); // sửa tiêu đề không đụng mô tả
+  const back = core.normalize(JSON.parse(JSON.stringify(data)));
+  assert.equal(back.tasks[0].note.length, 5000);
+  core.updateTask(data, t.id, { note: 'a\nb' });
+  assert.equal(core.normalize(JSON.parse(JSON.stringify(data))).tasks[0].note, 'a\nb');
+  const view = core.view(data, D('2026-10-25'));
+  assert.equal(view.todo[0].note, 'a\nb'); // view đưa mô tả ra giao diện
+});
+
 test('localDate dùng giờ địa phương, đúng định dạng', () => {
   assert.equal(core.localDate(new Date(2026, 9, 5, 23, 59)), '2026-10-05');
   assert.equal(core.localDate(new Date(2026, 0, 1, 0, 0)), '2026-01-01');

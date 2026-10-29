@@ -6,6 +6,7 @@ let choosing = null; // id việc định bắt đầu khi đang có việc khá
 let selDate = null; // ngày đang xem (null = hôm nay)
 let tab = 'today'; // today | repeat | prefs
 let doneOpen = false; // nhóm "Đã xong" đang mở
+let openId = null; // việc đang mở trong ngăn chi tiết
 
 const mins = (ms) => Math.max(0, Math.round(ms / 60000));
 
@@ -68,6 +69,12 @@ function row(task) {
     });
   }
   r.appendChild(title);
+  if (task.note) {
+    const h = el('span', 'hasnote');
+    h.title = T('dayHasNote');
+    h.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>';
+    r.appendChild(h);
+  }
   if (task.carriedFrom) r.appendChild(el('span', 'tag', T('dayCarried', { date: task.carriedFrom.slice(5).replace('-', '/') })));
   if (!state.isToday) {
     // việc của ngày sau: chưa bắt đầu hay tick được, chỉ sửa, đổi thứ tự, xoá hoặc dời về hôm nay
@@ -84,10 +91,19 @@ function row(task) {
     play.addEventListener('click', () => start(task.id));
     r.appendChild(play);
   }
+  const more = el('button', 'more', '›');
+  more.title = T('dayDetail');
+  more.addEventListener('click', () => openDrawer(task.id));
+  r.appendChild(more);
   const del = el('button', 'del', '✕');
   del.title = T('dayDelete');
   del.addEventListener('click', () => apply(window.dayTask.remove(task.id)));
   r.appendChild(del);
+  if (task.id === openId) r.classList.add('sel');
+  r.addEventListener('click', (e) => {
+    if (e.target.closest('button, .title, .grip')) return; // bấm vào chỗ trống của dòng thì mở chi tiết
+    openDrawer(task.id);
+  });
   return r;
 }
 
@@ -275,7 +291,123 @@ function render() {
   $('doneWrap').style.display = s.done.length ? '' : 'none';
   renderTemplates(s);
   renderPrefs(s);
+  if (openId) {
+    const t = findTask(openId);
+    if (t) fillDrawer(t, false);
+    else {
+      openId = null;
+      dirty = false;
+      drawer.classList.remove('open');
+      document.body.classList.remove('with-drawer');
+    }
+  }
 }
+
+// ---- Ngăn chi tiết (mô tả nhiều dòng) ----
+const drawer = $('drawer');
+const dTitle = $('dTitle');
+const dNote = $('dNote');
+const dSaved = $('dSaved');
+let saveTimer = 0;
+let savedTimer = 0;
+let dirty = false;
+
+const findTask = (id) => state && [...state.todo, ...state.done].find((t) => t.id === id);
+
+function fitNote() {
+  dNote.style.height = 'auto';
+  dNote.style.height = Math.min(dNote.scrollHeight + 2, window.innerHeight * 0.55) + 'px';
+}
+
+async function flushNote() {
+  clearTimeout(saveTimer);
+  if (!dirty || !openId) return;
+  dirty = false;
+  dSaved.textContent = T('daySaving');
+  dSaved.classList.add('on');
+  await window.dayTask.update(openId, { note: dNote.value });
+  dSaved.textContent = T('daySaved');
+  clearTimeout(savedTimer);
+  savedTimer = setTimeout(() => dSaved.classList.remove('on'), 1400);
+  refresh();
+}
+
+function fillDrawer(t, full) {
+  if (full || document.activeElement !== dTitle) dTitle.value = t.title;
+  if (full || (document.activeElement !== dNote && !dirty)) {
+    dNote.value = t.note || '';
+    fitNote();
+  }
+  const bits = [];
+  $('dState').textContent = t.status === 'done' ? T('dayDoneBtnShort') : t.state === 'doing' ? T('dayNowTag') : t.state === 'paused' ? T('dayPausedTag') : T('dayTabToday');
+  const created = t.createdAt ? new Date(t.createdAt) : null;
+  $('dCreated').textContent = created ? T('dayCreatedAt', { t: created.toLocaleDateString(lang === 'en' ? 'en-GB' : 'vi-VN', { day: '2-digit', month: '2-digit' }) + ' ' + created.toLocaleTimeString(lang === 'en' ? 'en-GB' : 'vi-VN', { hour: '2-digit', minute: '2-digit' }) }) : '';
+  $('dCreated').hidden = !created;
+  if (t.trackedMs >= 60000) bits.push(T('dayTimeSpent', { min: mins(t.trackedMs) }));
+  $('dState').textContent += bits.length ? ' · ' + bits[0] : '';
+  $('dDel').textContent = T('dayDeleteTask');
+}
+
+function openDrawer(id) {
+  const t = findTask(id);
+  if (!t) return;
+  if (openId && openId !== id) flushNote();
+  openId = id;
+  fillDrawer(t, true);
+  drawer.classList.add('open');
+  drawer.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('with-drawer');
+  render();
+  setTimeout(() => dNote.focus(), 120);
+}
+
+async function closeDrawer() {
+  if (!openId) return;
+  await flushNote();
+  openId = null;
+  drawer.classList.remove('open');
+  drawer.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('with-drawer');
+  render();
+}
+
+dNote.addEventListener('input', () => {
+  dirty = true;
+  fitNote();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushNote, 600);
+});
+dNote.addEventListener('blur', flushNote);
+dNote.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    e.stopPropagation();
+    dNote.blur();
+  }
+});
+async function saveTitle() {
+  const v = dTitle.value.trim();
+  const t = findTask(openId);
+  if (!t) return;
+  if (v && v !== t.title) await window.dayTask.update(openId, { title: v });
+  else dTitle.value = t.title;
+  refresh();
+}
+dTitle.addEventListener('blur', saveTitle);
+dTitle.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing) dTitle.blur();
+  if (e.key === 'Escape') {
+    e.stopPropagation();
+    dTitle.value = (findTask(openId) || {}).title || '';
+    dTitle.blur();
+  }
+});
+$('dClose').addEventListener('click', closeDrawer);
+$('dDel').addEventListener('click', async () => {
+  const id = openId;
+  dirty = false;
+  await closeDrawer();
+  apply(window.dayTask.remove(id));
+});
 
 // Kéo thả đổi thứ tự các việc chưa xong
 let dragging = null;
@@ -386,6 +518,7 @@ $('doneToggle').addEventListener('click', () => {
 for (const b of $('tabs').children) {
   b.addEventListener('click', () => {
     tab = b.dataset.tab;
+    if (openId) closeDrawer();
     render();
     if (tab === 'today') addEl.focus();
     else if (tab === 'repeat') $('tplTitle').focus();
@@ -404,6 +537,8 @@ window.dayTask.onShown(() => {
   addEl.focus();
 });
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') window.dayTask.close();
+  if (e.key !== 'Escape') return;
+  if (openId) closeDrawer();
+  else window.dayTask.close();
 });
 refresh();
