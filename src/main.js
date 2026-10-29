@@ -55,7 +55,7 @@ let dayTray = null;
 let dayTraySig = '';
 let dayBeatTimer = null;
 let splashView = null;
-let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', notifySound: true, disabled: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', look: 'system', lookCustom: '#2b5cff', order: [] };
+let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', notifySound: true, disabled: [], removed: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', look: 'system', lookCustom: '#2b5cff', order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
@@ -101,10 +101,11 @@ function customToTab(c) {
     internalHosts: host ? [host] : []
   };
 }
-// Mục "Việc hôm nay" nằm trên thanh bên như một app nhưng không có trang web: bấm vào thì mở trang phủ của riêng nó (local: true)
+// Mục "Việc cần làm" nằm trên thanh bên như một app nhưng không có trang web: bấm vào thì mở trang phủ của riêng nó (local: true)
 const dayTab = () => ({ id: 'daytask', name: T('dayTask'), icon: 'icons/daytask.svg', color: '#34c759', local: true });
+const allTabsRaw = () => [...builtinTabs, dayTab(), ...settings.customApps.map(customToTab)];
 const allTabs = () => {
-  const base = [...builtinTabs, dayTab(), ...settings.customApps.map(customToTab)];
+  const base = allTabsRaw().filter((t) => !settings.removed.includes(t.id)); // app mặc định đã xoá thì không hiện
   const rank = (t) => {
     const i = settings.order.indexOf(t.id);
     return i < 0 ? 1e6 + base.indexOf(t) : i;
@@ -112,7 +113,7 @@ const allTabs = () => {
   return base.slice().sort((a, b) => rank(a) - rank(b));
 };
 const tabById = (id) => allTabs().find((t) => t.id === id);
-const isEnabled = (id) => !settings.disabled.includes(id);
+const isEnabled = (id) => !settings.disabled.includes(id) && !settings.removed.includes(id);
 const enabledTabs = () => allTabs().filter((t) => isEnabled(t.id));
 const webTabs = () => enabledTabs().filter((t) => !t.local);
 
@@ -176,8 +177,11 @@ function settingsState() {
     reloadOnWake: settings.reloadOnWake,
     autoCheckUpdates: settings.autoCheckUpdates,
     update: updater.getState(),
+    removed: allTabsRaw()
+      .filter((t) => settings.removed.includes(t.id))
+      .map((t) => ({ id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, local: !!t.local })),
     apps: allTabs().map((t) => ({
-      id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, custom: !!t.custom, local: !!t.local, enabled: isEnabled(t.id)
+      id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, custom: !!t.custom, url: t.custom ? t.url : undefined, local: !!t.local, enabled: isEnabled(t.id)
     }))
   };
 }
@@ -826,7 +830,8 @@ function createTray() {
 }
 
 // ---- App tuỳ ý ----
-function addCustomApp({ name, url, color }) {
+// Chuẩn hoá tên, URL, màu từ form (dùng cho cả thêm và sửa)
+function normalizeCustom({ name, url, color }) {
   name = String(name || '').trim().slice(0, 24);
   if (!name) return { ok: false, error: 'name' };
   url = String(url || '').trim();
@@ -839,32 +844,86 @@ function addCustomApp({ name, url, color }) {
     return { ok: false, error: 'url' };
   }
   if (!/^#[0-9a-f]{6}$/i.test(color || '')) color = '#3B82F6';
+  return { ok: true, name, url, color };
+}
+
+const pushSettings = () => settingsView && settingsView.webContents.send('settings:state', settingsState());
+
+function addCustomApp(data) {
+  const n = normalizeCustom(data);
+  if (!n.ok) return n;
   const id = 'custom-' + Date.now().toString(36);
-  settings.customApps.push({ id, name, url, color });
+  settings.customApps.push({ id, name: n.name, url: n.url, color: n.color });
   settingsStore.save(settings);
   createView(tabById(id));
   sendState();
-  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+  pushSettings();
   return { ok: true };
 }
 
-function removeCustomApp(id) {
-  const c = settings.customApps.find((a) => a.id === id);
+// Sửa app đã thêm: đổi tên, URL, màu. Đổi URL thì tải lại trang bằng địa chỉ mới nhưng giữ phiên đăng nhập (phân vùng gắn với id, không đổi).
+function editCustomApp(data) {
+  const c = settings.customApps.find((a) => a.id === (data && data.id));
   if (!c) return { ok: false };
-  if (webTabs().length <= 1 && isEnabled(id)) return { ok: false, error: 'last' };
-  const tab = customToTab(c);
-  destroyView(id);
-  settings.customApps = settings.customApps.filter((a) => a.id !== id);
-  settings.disabled = settings.disabled.filter((d) => d !== id);
+  const n = normalizeCustom(data);
+  if (!n.ok) return n;
+  const urlChanged = c.url !== n.url;
+  c.name = n.name;
+  c.url = n.url;
+  c.color = n.color;
   settingsStore.save(settings);
-  session.fromPartition(tab.partition).clearStorageData().catch(() => {});
+  if (urlChanged && views.has(c.id)) {
+    destroyView(c.id);
+    createView(tabById(c.id));
+    applyVisibility();
+  }
+  updateBadge();
+  sendState();
+  pushSettings();
+  return { ok: true };
+}
+
+// Xoá app: app tuỳ ý bị gỡ hẳn; app mặc định (và Việc cần làm) được ghi vào danh sách đã xoá để khôi phục sau. Cả hai đều xoá dữ liệu đăng nhập của app web.
+function removeApp(id) {
+  const tab = allTabsRaw().find((t) => t.id === id);
+  if (!tab || settings.removed.includes(id)) return { ok: false };
+  if (!tab.local && webTabs().length <= 1 && isEnabled(id)) return { ok: false, error: 'last' };
+  if (tab.local) {
+    setDayOpen(false);
+    dayStore.pause();
+  } else {
+    destroyView(id);
+    session.fromPartition(tab.partition).clearStorageData().catch(() => {});
+  }
+  if (tab.custom) {
+    settings.customApps = settings.customApps.filter((a) => a.id !== id);
+    settings.disabled = settings.disabled.filter((d) => d !== id);
+  } else {
+    settings.removed = [...settings.removed, id];
+  }
+  settings.order = settings.order.filter((x) => x !== id);
+  settingsStore.save(settings);
+  if (tab.local) setImmediate(() => dayAgent.sync());
   if (activeId === id) {
     activeId = null;
     selectTab(webTabs()[0].id);
   }
   updateBadge();
   sendState();
-  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+  pushSettings();
+  return { ok: true };
+}
+
+function restoreApp(id) {
+  if (!settings.removed.includes(id)) return { ok: false };
+  settings.removed = settings.removed.filter((x) => x !== id);
+  settings.disabled = settings.disabled.filter((d) => d !== id);
+  settingsStore.save(settings);
+  const tab = tabById(id);
+  if (tab && !tab.local && !views.has(id)) createView(tab);
+  if (tab && tab.local) setImmediate(() => dayAgent.sync());
+  sendState();
+  pushSettings();
   return { ok: true };
 }
 
@@ -1216,7 +1275,9 @@ ipcMain.on('settings:set-order', (_e, ids) => {
   if (settingsView) settingsView.webContents.send('settings:state', settingsState());
 });
 ipcMain.handle('settings:add-app', (_e, data) => addCustomApp(data || {}));
-ipcMain.handle('settings:remove-app', (_e, id) => removeCustomApp(id));
+ipcMain.handle('settings:remove-app', (_e, id) => removeApp(id));
+ipcMain.handle('settings:edit-app', (_e, data) => editCustomApp(data || {}));
+ipcMain.handle('settings:restore-app', (_e, id) => restoreApp(id));
 ipcMain.on('settings:set-enabled', (_e, id, enabled) => {
   if (tabById(id)) applyEnabledChange(id, !!enabled);
 });

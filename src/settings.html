@@ -45,6 +45,26 @@
     .del { border: 0; background: transparent; color: var(--muted); cursor: pointer; font: 600 11.5px -apple-system, BlinkMacSystemFont, sans-serif; padding: 5px 9px; border-radius: 7px; margin-right: 2px; }
     .del:hover { color: #f87171; background: rgba(248,113,113,.1); }
     .del.confirm { color: #fff; background: #dc2626; }
+    .edit { border: 0; background: transparent; color: var(--muted); cursor: pointer; font: 600 11.5px -apple-system, BlinkMacSystemFont, sans-serif; padding: 5px 9px; border-radius: 7px; }
+    .edit:hover { color: var(--accent); background: var(--surface2); }
+    .row.editing { box-shadow: inset 3px 0 0 var(--accent); }
+    .ghost { border: 1px solid var(--border2); background: transparent; color: var(--muted); border-radius: 11px; padding: 9px 16px; font: 600 12.5px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; }
+    .ghost:hover { color: var(--text); }
+    .modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .42); padding: 24px; }
+    .modal[hidden] { display: none; }
+    .modal .box { width: min(400px, 100%); padding: 24px; border-radius: 20px; background: var(--card); border: 1px solid var(--border2); box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
+    .modal h3 { font-size: 17px; font-weight: 800; margin-bottom: 8px; word-break: break-word; }
+    .modal p { font-size: 13.5px; line-height: 1.5; color: var(--muted); margin-bottom: 20px; }
+    .mact { display: flex; justify-content: flex-end; gap: 10px; }
+    .mact button { min-height: 38px; }
+    .danger { border: 0; border-radius: 11px; padding: 0 20px; background: #dc2626; color: #fff; font: 700 12.5px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; }
+    .danger:hover { filter: brightness(1.1); }
+    .removed { margin-top: 18px; }
+    .removed[hidden] { display: none; }
+    .rm { display: flex; flex-wrap: wrap; gap: 8px; }
+    .rm .chip { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 6px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border2); font-size: 13px; font-weight: 600; }
+    .rm .chip .ico { --sz: 26px; opacity: .6; }
+    .rm .chip button { border: 0; border-radius: 9px; padding: 5px 11px; background: var(--accent); color: var(--on-accent); font: 700 11.5px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; }
     .switch { position: relative; width: 44px; height: 26px; flex: none; cursor: pointer; }
     .switch input { display: none; }
     .switch span { position: absolute; inset: 0; border-radius: 13px; background: var(--surface2); transition: background .25s; }
@@ -107,6 +127,13 @@
   </style>
 </head>
 <body>
+  <div class="modal" id="modal" hidden>
+    <div class="box" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+      <h3 id="mTitle"></h3>
+      <p id="mBody"></p>
+      <div class="mact"><button class="ghost" id="mNo"></button><button class="danger" id="mYes"></button></div>
+    </div>
+  </div>
   <div class="page enter" id="page">
     <header>
       <div>
@@ -118,14 +145,18 @@
     <div>
       <h2 data-i18n="appsHeading">Ứng dụng</h2>
       <div class="list" id="list"></div>
+      <div class="removed" id="removedBox" hidden>
+        <h2 data-i18n="removedHeading">Ứng dụng đã xoá</h2>
+        <div class="rm" id="removedList"></div>
+      </div>
     </div>
     <div class="section">
-      <h2 data-i18n="addHeading">Thêm app</h2>
+      <h2 id="formHeading">Thêm app</h2>
       <div class="form">
         <label class="f"><span data-i18n="nameLabel">Tên app</span><input type="text" id="app-name" data-i18n-placeholder="namePlaceholder" placeholder="Ví dụ: Gmail" maxlength="24" autocomplete="off"></label>
         <label class="f"><span data-i18n="urlLabel">Địa chỉ web (URL)</span><input type="text" id="app-url" placeholder="https://mail.google.com" autocomplete="off" spellcheck="false"></label>
         <div class="f"><span data-i18n="colorLabel">Màu icon</span><div class="swatches" id="swatches"></div></div>
-        <div class="actions"><button class="add" id="add" data-i18n="addBtn">Thêm app</button><span class="err" id="err"></span></div>
+        <div class="actions"><button class="add" id="add">Thêm app</button><button class="ghost" id="cancelEdit" hidden>Huỷ</button><span class="err" id="err"></span></div>
       </div>
     </div>
     <div class="section">

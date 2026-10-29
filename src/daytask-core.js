@@ -1,4 +1,4 @@
-// Logic thuần của "Việc hôm nay" (không đụng tới đĩa hay Electron) để dễ viết test.
+// Logic thuần của "Việc cần làm" (không đụng tới đĩa hay Electron) để dễ viết test.
 // Dữ liệu: { version, tasks: [Task], sessions: [Session], templates: [Template], active, meta }
 // Session: { id, taskId, start, end|null } — mỗi lần bấm Bắt đầu mở một phiên, Tạm dừng/Xong đóng phiên.
 // active: { taskId, sessionId, lastBeat } | null — việc đang làm (chỉ một). lastBeat để biết app còn sống tới lúc nào.

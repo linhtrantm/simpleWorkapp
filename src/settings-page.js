@@ -30,10 +30,40 @@ const swatchesEl = document.getElementById('swatches');
 const COLORS = ['#3B82F6', '#06b6d4', '#10b981', '#84cc16', '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6', '#64748b'];
 let color = COLORS[0];
 let lang = 'vi';
+let editingId = null; // id app đang sửa trong form (null = đang thêm mới)
+let lastApps = [];
+const formHeading = document.getElementById('formHeading');
+const addBtn = document.getElementById('add');
+const cancelBtn = document.getElementById('cancelEdit');
 
 document.getElementById('close').addEventListener('click', () => window.simpleWork.closeSettings());
+const modal = document.getElementById('modal');
+let modalDone = null;
+// Hộp xác nhận xoá: trả về true nếu người dùng bấm Xoá. Esc hoặc bấm ra ngoài là huỷ (và Esc lúc này không đóng cả trang Cài đặt).
+function confirmRemove(a) {
+  document.getElementById('mTitle').textContent = i18n.t(lang, 'delTitle', { name: a.name });
+  document.getElementById('mBody').textContent = i18n.t(lang, a.custom ? 'delBodyCustom' : a.local ? 'delBodyLocal' : 'delBodyDefault');
+  document.getElementById('mNo').textContent = i18n.t(lang, 'cancelBtn');
+  document.getElementById('mYes').textContent = i18n.t(lang, 'remove');
+  modal.hidden = false;
+  document.getElementById('mNo').focus();
+  return new Promise((resolve) => {
+    modalDone = (ok) => {
+      modal.hidden = true;
+      modalDone = null;
+      resolve(ok);
+    };
+  });
+}
+document.getElementById('mNo').addEventListener('click', () => modalDone && modalDone(false));
+document.getElementById('mYes').addEventListener('click', () => modalDone && modalDone(true));
+modal.addEventListener('mousedown', (e) => {
+  if (e.target === modal && modalDone) modalDone(false);
+});
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') window.simpleWork.closeSettings();
+  if (e.key !== 'Escape') return;
+  if (modalDone) modalDone(false);
+  else window.simpleWork.closeSettings();
 });
 
 // Hiệu ứng xuất hiện mỗi lần mở trang
@@ -161,26 +191,76 @@ COLORS.forEach((c) => {
   b.title = c;
   b.addEventListener('click', () => {
     color = c;
-    for (const x of swatchesEl.children) x.classList.toggle('on', x === b);
+    paintSwatches();
   });
-  if (c === color) b.classList.add('on');
   swatchesEl.appendChild(b);
 });
+paintSwatches();
+
+function paintSwatches() {
+  let hit = false;
+  [...swatchesEl.children].forEach((b, i) => {
+    const on = COLORS[i].toLowerCase() === color.toLowerCase();
+    b.classList.toggle('on', on);
+    hit = hit || on;
+  });
+  swatchesEl.dataset.custom = hit ? '' : color; // màu app cũ không nằm trong bảng màu thì vẫn được giữ nguyên khi lưu
+}
+
+function paintForm() {
+  formHeading.textContent = i18n.t(lang, editingId ? 'editHeading' : 'addHeading');
+  addBtn.textContent = i18n.t(lang, editingId ? 'saveBtn' : 'addBtn');
+  cancelBtn.textContent = i18n.t(lang, 'cancelBtn');
+  cancelBtn.hidden = !editingId;
+}
+
+function exitEdit() {
+  editingId = null;
+  nameEl.value = '';
+  urlEl.value = '';
+  errEl.textContent = '';
+  color = COLORS[0];
+  paintSwatches();
+  paintForm();
+  paintRows();
+}
+
+function startEdit(a) {
+  editingId = a.id;
+  nameEl.value = a.name;
+  urlEl.value = a.url || '';
+  color = a.color || COLORS[0];
+  errEl.textContent = '';
+  paintSwatches();
+  paintForm();
+  paintRows();
+  formHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  nameEl.focus();
+}
 
 async function submitApp() {
   errEl.textContent = '';
-  const res = await window.simpleWork.addApp({ name: nameEl.value, url: urlEl.value, color });
+  const data = { name: nameEl.value, url: urlEl.value, color };
+  const res = await (editingId ? window.simpleWork.editApp({ id: editingId, ...data }) : window.simpleWork.addApp(data));
   if (res && res.ok) {
-    nameEl.value = '';
-    urlEl.value = '';
+    if (editingId) exitEdit();
+    else {
+      nameEl.value = '';
+      urlEl.value = '';
+    }
   } else {
     errEl.textContent = errText(res && res.error);
   }
 }
-document.getElementById('add').addEventListener('click', submitApp);
+addBtn.addEventListener('click', submitApp);
+cancelBtn.addEventListener('click', exitEdit);
 [nameEl, urlEl].forEach((el) =>
   el.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitApp();
+    if (e.key === 'Escape' && editingId) {
+      e.stopPropagation();
+      exitEdit();
+    }
   })
 );
 
@@ -241,38 +321,13 @@ function renderUpdate(u, auto) {
   updAuto.checked = auto !== false;
 }
 
-let looksLang = '';
-function render({ apps, version, iconLevel, lang: newLang, theme, look, lookCustom, update, autoCheckUpdates, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
-  lang = newLang || 'vi';
-  i18n.apply(lang, document);
-  const info = swTheme.resolveTheme(look, lookCustom);
-  swTheme.applyLook(info, document);
-  lastCustom.look = lookCustom || lastCustom.look;
-  if (looksLang !== lang) {
-    looksLang = lang;
-    buildLooks();
-  }
-  for (const b of looksEl.children) b.classList.toggle('on', b.dataset.look === look);
-  document.getElementById('lookMix').hidden = look !== 'custom';
-  lookMix.set(lookCustom);
-  lookMix.paint();
-  document.getElementById('modeGroup').hidden = look !== 'system'; // Tự động/Sáng/Tối chỉ có nghĩa khi theo hệ thống; chủ đề đã quy định sáng hoặc tối
-  for (const b of langs.children) b.classList.toggle('on', b.dataset.lang === lang);
-  if (document.activeElement !== level) level.value = iconLevel || 4;
-  paintLevel();
-  if (update) renderUpdate(update, autoCheckUpdates);
-  notifSound.checked = notifySound !== false;
-  keepAc.checked = keepAwakeAc !== false;
-  keepBattery.checked = keepAwakeBattery !== false;
-  reloadWake.checked = reloadOnWake !== false;
-  for (const b of themes.children) b.classList.toggle('on', b.dataset.theme === theme);
-  ver.textContent = 'v' + version;
-
+function paintRows() {
+  const apps = lastApps;
   const enabledCount = apps.filter((a) => a.enabled && !a.local).length; // luôn giữ ít nhất 1 app web
   list.replaceChildren(
     ...apps.map((a) => {
       const row = document.createElement('div');
-      row.className = 'row' + (a.enabled ? '' : ' off');
+      row.className = 'row' + (a.enabled ? '' : ' off') + (a.id === editingId ? ' editing' : '');
       row.dataset.id = a.id;
 
       const grip = document.createElement('div');
@@ -311,21 +366,19 @@ function render({ apps, version, iconLevel, lang: newLang, theme, look, lookCust
       row.appendChild(state);
 
       if (a.custom) {
+        const ed = document.createElement('button');
+        ed.className = 'edit';
+        ed.textContent = i18n.t(lang, 'editApp');
+        ed.addEventListener('click', () => startEdit(a));
+        row.appendChild(ed);
+      }
+
+      {
         const del = document.createElement('button');
         del.className = 'del';
         del.textContent = i18n.t(lang, 'remove');
-        let timer;
         del.addEventListener('click', async () => {
-          if (!del.classList.contains('confirm')) {
-            del.classList.add('confirm');
-            del.textContent = i18n.t(lang, 'removeConfirm');
-            timer = setTimeout(() => {
-              del.classList.remove('confirm');
-              del.textContent = i18n.t(lang, 'remove');
-            }, 3000);
-            return;
-          }
-          clearTimeout(timer);
+          if (!(await confirmRemove(a))) return;
           const res = await window.simpleWork.removeApp(a.id);
           if (res && res.error) errEl.textContent = errText(res.error);
         });
@@ -344,6 +397,62 @@ function render({ apps, version, iconLevel, lang: newLang, theme, look, lookCust
       return row;
     })
   );
+}
+
+function paintRemoved(removed) {
+  const box = document.getElementById('removedBox');
+  const lst = document.getElementById('removedList');
+  box.hidden = !removed.length;
+  lst.replaceChildren(
+    ...removed.map((a) => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      const ico = document.createElement('div');
+      ico.className = 'ico';
+      ico.appendChild(swIcon.node(a));
+      const nm = document.createElement('span');
+      nm.textContent = a.name;
+      const btn = document.createElement('button');
+      btn.textContent = i18n.t(lang, 'restore');
+      btn.addEventListener('click', () => window.simpleWork.restoreApp(a.id));
+      chip.append(ico, nm, btn);
+      return chip;
+    })
+  );
+}
+
+let looksLang = '';
+function render({ apps, removed, version, iconLevel, lang: newLang, theme, look, lookCustom, update, autoCheckUpdates, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
+  lang = newLang || 'vi';
+  i18n.apply(lang, document);
+  const info = swTheme.resolveTheme(look, lookCustom);
+  swTheme.applyLook(info, document);
+  lastCustom.look = lookCustom || lastCustom.look;
+  if (looksLang !== lang) {
+    looksLang = lang;
+    buildLooks();
+  }
+  for (const b of looksEl.children) b.classList.toggle('on', b.dataset.look === look);
+  document.getElementById('lookMix').hidden = look !== 'custom';
+  lookMix.set(lookCustom);
+  lookMix.paint();
+  document.getElementById('modeGroup').hidden = look !== 'system'; // Tự động/Sáng/Tối chỉ có nghĩa khi theo hệ thống; chủ đề đã quy định sáng hoặc tối
+  for (const b of langs.children) b.classList.toggle('on', b.dataset.lang === lang);
+  if (document.activeElement !== level) level.value = iconLevel || 4;
+  paintLevel();
+  if (update) renderUpdate(update, autoCheckUpdates);
+  notifSound.checked = notifySound !== false;
+  keepAc.checked = keepAwakeAc !== false;
+  keepBattery.checked = keepAwakeBattery !== false;
+  reloadWake.checked = reloadOnWake !== false;
+  for (const b of themes.children) b.classList.toggle('on', b.dataset.theme === theme);
+  ver.textContent = 'v' + version;
+
+  lastApps = apps;
+  if (editingId && !apps.some((x) => x.id === editingId)) editingId = null; // app đang sửa vừa bị xoá
+  paintRows();
+  paintRemoved(removed || []);
+  paintForm();
 }
 
 window.simpleWork.onSettings(render);

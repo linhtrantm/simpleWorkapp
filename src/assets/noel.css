@@ -38,7 +38,7 @@ html[data-look='noel'] .list, html[data-look='noel'] .carry, html[data-look='noe
 html[data-look='noel'] .form { background: var(--card); border: 2.5px solid var(--noel-line); box-shadow: 4px 4px 0 var(--noel-line); }
 
 /* Thanh tiến độ sọc kẹo, nút chính có sọc chéo nhạt, việc xong màu xanh lá */
-html[data-look='noel'] .bar i { background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .55) 0 6px, transparent 6px 12px), #b3261e; }
+html[data-look='noel'] .pbar i { background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .55) 0 6px, transparent 6px 12px), #b3261e; }
 html[data-look='noel'] .carry button:not(.ghost), html[data-look='noel'] .switch button:not(.ghost), html[data-look='noel'] .addtpl .go, html[data-look='noel'] .actions .add, html[data-look='noel'] #upd-btn {
   background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .16) 0 9px, transparent 9px 18px), #b3261e;
 }

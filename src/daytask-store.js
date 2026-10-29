@@ -1,4 +1,4 @@
-// Lưu "Việc hôm nay" ra file daytask.json trong thư mục dữ liệu của app. Ghi ngay sau mỗi thay đổi (ghi file tạm rồi đổi tên
+// Lưu "Việc cần làm" ra file daytask.json trong thư mục dữ liệu của app. Ghi ngay sau mỗi thay đổi (ghi file tạm rồi đổi tên
 // để không bao giờ để lại file ghi dở khi crash hoặc tắt máy).
 const { app } = require('electron');
 const fs = require('fs');

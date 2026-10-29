@@ -1,4 +1,4 @@
-// Test logic "Việc hôm nay": node scripts/test-daytask.js (hoặc npm test)
+// Test logic "Việc cần làm": node scripts/test-daytask.js (hoặc npm test)
 const assert = require('node:assert/strict');
 const core = require('../src/daytask-core');
 

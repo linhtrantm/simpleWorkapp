@@ -1,5 +1,5 @@
-// Phần "chạy ngầm" của Việc hôm nay: thông báo buổi sáng và tổng kết, hỏi khi máy im, nhắc chưa chọn việc,
-// phím tắt toàn hệ thống và widget nổi. Chỉ chạy khi mục Việc hôm nay đang bật.
+// Phần "chạy ngầm" của Việc cần làm: thông báo buổi sáng và tổng kết, hỏi khi máy im, nhắc chưa chọn việc,
+// phím tắt toàn hệ thống và widget nổi. Chỉ chạy khi mục Việc cần làm đang bật.
 const { BrowserWindow, Notification, dialog, globalShortcut, powerMonitor, screen, ipcMain } = require('electron');
 const path = require('path');
 

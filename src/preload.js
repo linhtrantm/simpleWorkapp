@@ -36,6 +36,8 @@ contextBridge.exposeInMainWorld('simpleWork', {
   setLang: (lang) => ipcRenderer.send('settings:set-lang', lang),
   addApp: (data) => ipcRenderer.invoke('settings:add-app', data),
   removeApp: (id) => ipcRenderer.invoke('settings:remove-app', id),
+  editApp: (data) => ipcRenderer.invoke('settings:edit-app', data),
+  restoreApp: (id) => ipcRenderer.invoke('settings:restore-app', id),
   closeSettings: () => ipcRenderer.send('settings:close'),
   // loader
   onSplashHide: (cb) => ipcRenderer.on('splash:hide', cb)
