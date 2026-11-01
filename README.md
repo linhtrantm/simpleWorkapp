@@ -2,7 +2,7 @@
 
 App desktop macOS (Electron) gom Zalo, WhatsApp, Teams, Messenger, Claude và các web app tuỳ ý vào một cửa sổ. Mỗi app có phiên đăng nhập riêng, giữ nguyên qua các lần mở và các lần cập nhật.
 
-Phiên bản hiện tại: **1.9.0** (macOS, Apple Silicon).
+Phiên bản hiện tại: **1.10.0** (macOS, Apple Silicon).
 
 ## Tính năng
 
@@ -13,7 +13,7 @@ Phiên bản hiện tại: **1.9.0** (macOS, Apple Silicon).
 - **Thông báo gốc macOS** cho tin mới: tiêu đề có tên app, bấm vào thì mở app và chuyển đúng tab. Có badge số tin chưa đọc trên icon app, icon Dock và menu bar.
 - **Menu bar:** icon hiện tổng tin chưa đọc, menu chuyển nhanh giữa các app.
 - **Màn hình chờ và báo lỗi** riêng cho từng app, có nút Thử lại.
-- **Cài đặt** (nút ⚙): bật/tắt từng app, kéo thả đổi thứ tự, thêm, **sửa** (đổi tên, URL, màu, giữ nguyên phiên đăng nhập) và xoá app tuỳ ý; mọi app mặc định (kể cả Việc cần làm) đều xoá được, xoá rồi vẫn **khôi phục** được trong mục "Ứng dụng đã xoá" (luôn giữ ít nhất một app web), thanh trượt cỡ icon 6 mức, **chủ đề** màu (Giấy, Hồng, Bạc hà, Trời, Hoàng hôn, Nho, Noel, Đêm, Cực quang, Than chì hoặc tự pha từ một màu): chọn một chủ đề là đổi cả nền, thẻ, chữ, màu nhấn của app lẫn màu thanh bên theo `theme.md` (Noel có thêm tuyết rơi, dây đèn nhấp nháy, thanh tiến độ sọc kẹo); nội dung các trang web không đổi, âm thanh thông báo, ngôn ngữ Tiếng Việt / English.
+- **Cài đặt** (nút ⚙): bật/tắt từng app, kéo thả đổi thứ tự, thêm, **sửa** (đổi tên, URL, màu, giữ nguyên phiên đăng nhập) và xoá app tuỳ ý; mọi app mặc định (kể cả Việc cần làm) đều xoá được, xoá rồi vẫn **khôi phục** được trong mục "Ứng dụng đã xoá" (luôn giữ ít nhất một app web), thanh trượt cỡ icon 6 mức, **chủ đề** màu (Giấy, Hồng, Bạc hà, Trời, Hoàng hôn, Nho, Noel, Đêm, Cực quang, Than chì hoặc tự pha từ một màu; chủ đề tự pha còn chọn được **hình nền** (trái tim, hoa, hoa tulip, chấm bi, kẻ ô) và **mật độ** 5 mức; hoạ tiết của các chủ đề có sẵn đã thưa hơn 15%): chọn một chủ đề là đổi cả nền, thẻ, chữ, màu nhấn của app lẫn màu thanh bên theo `theme.md` (Noel có thêm tuyết rơi, dây đèn nhấp nháy, thanh tiến độ sọc kẹo); nội dung các trang web không đổi, âm thanh thông báo, ngôn ngữ Tiếng Việt / English.
 - **Chuột phải vào icon app:** Tải lại, Mở trong trình duyệt.
 - **Kéo cửa sổ:** kéo bằng nền thanh bên (khoảng trống quanh 3 nút cửa sổ, kẽ giữa các icon, vùng dưới danh sách app). Các vùng kéo do chính trang web tự khai báo (ví dụ ô Search của Zalo) bị tắt để không kéo nhầm.
 - Link bấm trong chat mở bằng **trình duyệt mặc định** của macOS. Chỉ popup đăng nhập mới mở trong app.
@@ -33,7 +33,7 @@ Nếu chạy trong terminal của VSCode mà app crash ngay, thử `env -u ELECT
 npm run dist
 ```
 
-Kết quả: `dist/simpleWork-1.9.0-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
+Kết quả: `dist/simpleWork-1.10.0-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
 
 App được ký **ad-hoc**, chưa có Apple Developer ID nên chưa notarize. Ký ad-hoc là điều kiện để macOS đưa app vào mục Thông báo. Lần đầu mở nếu bị Gatekeeper chặn: chuột phải vào app > Open, hoặc `xattr -cr /Applications/simpleWork.app`.
 

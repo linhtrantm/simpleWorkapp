@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('simpleWork', {
   setTheme: (theme) => ipcRenderer.send('settings:set-theme', theme),
   setLook: (id) => ipcRenderer.send('settings:set-look', id),
   setLookCustom: (hex) => ipcRenderer.send('settings:set-look-custom', hex),
+  setLookDeco: (deco) => ipcRenderer.send('settings:set-look-deco', deco),
   getUpdate: () => ipcRenderer.invoke('update:get'),
   onUpdatePopup: (cb) => ipcRenderer.on('update:popup', (_e, d) => cb(d)),
   updateLater: () => ipcRenderer.send('update:later'),

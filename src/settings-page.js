@@ -148,6 +148,30 @@ function makeMixer(host, onPick) {
     paint
   };
 }
+// Hình nền và mật độ của chủ đề tự pha
+const PAT_GLYPH = { none: '∅', hearts: '♥', flowers: '❀', tulips: '🌷', dots: '⁘', grid: '▦' };
+const patsEl = document.getElementById('pats');
+const patDens = document.getElementById('patDens');
+let patBuiltLang = '';
+function buildPats() {
+  patsEl.replaceChildren();
+  swTheme.PATTERN_IDS.forEach((id) => {
+    const b = document.createElement('button');
+    b.dataset.pat = id;
+    const g = document.createElement('span');
+    g.className = 'g';
+    g.textContent = PAT_GLYPH[id];
+    const t = document.createElement('span');
+    t.textContent = i18n.t(lang, 'pat_' + id);
+    b.append(g, t);
+    b.addEventListener('click', () => window.simpleWork.setLookDeco({ bg: id }));
+    patsEl.appendChild(b);
+  });
+}
+patDens.addEventListener('input', () => {
+  document.getElementById('patDensOut').textContent = i18n.t(lang, 'dens_' + patDens.value);
+  window.simpleWork.setLookDeco({ density: Number(patDens.value) });
+});
 const lookMix = makeMixer(document.getElementById('lookMix'), (c) => window.simpleWork.setLookCustom(c));
 const looksEl = document.getElementById('looks');
 const lastCustom = { look: '#2b5cff' };
@@ -422,10 +446,10 @@ function paintRemoved(removed) {
 }
 
 let looksLang = '';
-function render({ apps, removed, version, iconLevel, lang: newLang, theme, look, lookCustom, update, autoCheckUpdates, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
+function render({ apps, removed, version, iconLevel, lang: newLang, theme, look, lookCustom, lookCustomBg, lookCustomDensity, update, autoCheckUpdates, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
   lang = newLang || 'vi';
   i18n.apply(lang, document);
-  const info = swTheme.resolveTheme(look, lookCustom);
+  const info = swTheme.resolveTheme(look, lookCustom, { bg: lookCustomBg, density: lookCustomDensity });
   swTheme.applyLook(info, document);
   lastCustom.look = lookCustom || lastCustom.look;
   if (looksLang !== lang) {
@@ -434,6 +458,14 @@ function render({ apps, removed, version, iconLevel, lang: newLang, theme, look,
   }
   for (const b of looksEl.children) b.classList.toggle('on', b.dataset.look === look);
   document.getElementById('lookMix').hidden = look !== 'custom';
+  document.getElementById('lookDeco').hidden = look !== 'custom';
+  if (patBuiltLang !== lang) {
+    patBuiltLang = lang;
+    buildPats();
+  }
+  for (const b of patsEl.children) b.classList.toggle('on', b.dataset.pat === (lookCustomBg || 'none'));
+  if (document.activeElement !== patDens) patDens.value = lookCustomDensity || 3;
+  document.getElementById('patDensOut').textContent = i18n.t(lang, 'dens_' + patDens.value);
   lookMix.set(lookCustom);
   lookMix.paint();
   document.getElementById('modeGroup').hidden = look !== 'system'; // Tự động/Sáng/Tối chỉ có nghĩa khi theo hệ thống; chủ đề đã quy định sáng hoặc tối

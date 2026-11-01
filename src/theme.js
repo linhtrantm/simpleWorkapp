@@ -73,6 +73,15 @@
   };
   const THEME_IDS = ['system', 'custom', ...Object.keys(THEMES)];
 
+  // Hoạ tiết nền chọn được cho chủ đề tự pha (các chủ đề có sẵn mỗi cái một hoạ tiết riêng, xem THEMES)
+  const PATTERN_IDS = ['none', 'hearts', 'flowers', 'tulips', 'dots', 'grid'];
+  // Mật độ hoạ tiết 1 (rất thưa) đến 5 (rất dày) -> hệ số kích thước ô lặp lại (càng lớn càng thưa).
+  // Mức 3 là mức mặc định của mọi chủ đề có sẵn: đã thưa hơn bản trước 15% (số hoạ tiết trên một màn hình ít đi 15%, ô lớn hơn ~8,5%).
+  const DENSITY_K = [1.9, 1.45, 1.085, 0.85, 0.7];
+  const DEFAULT_DENSITY = 3;
+  const cleanDensity = (n) => (Number.isInteger(n) && n >= 1 && n <= 5 ? n : DEFAULT_DENSITY);
+  const densityK = (n) => DENSITY_K[cleanDensity(n) - 1];
+
   const isHex = (s) => typeof s === 'string' && /^#[0-9a-f]{6}$/i.test(s);
 
   function hexToRgb(hex) {
@@ -150,10 +159,12 @@
   }
 
   // Trả về { palette: {...}, frame: { css, base, light } } hoặc null ('system', id lạ, màu tự pha sai)
-  function resolveTheme(id, custom) {
+  // deco = { bg, density } chỉ có tác dụng với chủ đề tự pha
+  function resolveTheme(id, custom, deco) {
     const t = id === 'custom' ? (isHex(custom) ? deriveCustom(custom) : null) : THEMES[id];
     if (!t) return null;
-    return { id, accent: t.accent, style: t.style || 'clean', bg: t.bg || 'none', font: t.font || 'default', palette: { ...t.palette }, frame: { ...t.frame, light: isLight(t.frame.base) } };
+    const mine = id === 'custom';
+    return { id, accent: t.accent, style: t.style || 'clean', bg: mine && deco && PATTERN_IDS.includes(deco.bg) ? deco.bg : t.bg || 'none', k: densityK(mine && deco ? deco.density : DEFAULT_DENSITY), font: t.font || 'default', palette: { ...t.palette }, frame: { ...t.frame, light: isLight(t.frame.base) } };
   }
 
   // Chủ đề = bảng màu + màu thanh bên gộp một. Tên cũ (palette, frame) đổi sang tên mới để người dùng cũ không mất lựa chọn.
@@ -171,7 +182,12 @@
       }
     }
     if (look === 'custom' && !isHex(custom)) look = 'system'; // chọn tự pha mà không có màu thì về theo hệ thống
-    return { look, lookCustom: isHex(custom) ? custom : '#2b5cff' };
+    return {
+      look,
+      lookCustom: isHex(custom) ? custom : '#2b5cff',
+      lookCustomBg: PATTERN_IDS.includes(data.lookCustomBg) ? data.lookCustomBg : 'none',
+      lookCustomDensity: cleanDensity(data.lookCustomDensity)
+    };
   }
 
   const rgba = (hex, a) => {
@@ -220,6 +236,7 @@
     doc.documentElement.dataset.dstyle = (look && look.style) || 'clean';
     doc.documentElement.dataset.bg = (look && look.bg) || 'none';
     doc.documentElement.dataset.font = (look && look.font) || 'default';
+    doc.documentElement.style.setProperty('--pat-k', String((look && look.k) || densityK(DEFAULT_DENSITY)));
     if (root.swFx) root.swFx.sync(look ? look.id : 'system', doc);
   }
 
@@ -246,7 +263,7 @@
     side.style.setProperty('--brand', ink);
   }
 
-  const api = { THEMES, THEME_IDS, isHex, hslToHex, hexToHsl, luminance, isLight, deriveCustom, resolveTheme, migrateLook, applyPalette, apply, applyLook, applyFrame };
+  const api = { THEMES, THEME_IDS, isHex, hslToHex, hexToHsl, luminance, isLight, deriveCustom, resolveTheme, migrateLook, PATTERN_IDS, DENSITY_K, DEFAULT_DENSITY, densityK, applyPalette, apply, applyLook, applyFrame };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.swTheme = api;
 })(this);

@@ -6,7 +6,7 @@ const theme = require('./theme');
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
 // { disabled: ['teams', ...], removed: ['zalo', ...] (app mặc định đã xoá), iconLevel: 1..6, customApps: [{ id, name, url, color }], lang: 'vi'|'en',
-// theme: 'system'|'light'|'dark', look: system|custom|paper|pink|mint|sky|sunset|grape|noel|night|aurora|graphite (chủ đề: bảng màu + thanh bên; custom dùng lookCustom), order: [id...], notifySound: true|false, keepAwakeAc: true|false, keepAwakeBattery: true|false, reloadOnWake: true|false }
+// theme: 'system'|'light'|'dark', lookCustomBg: none|hearts|flowers|tulips|dots|grid (hoạ tiết của chủ đề tự pha), lookCustomDensity: 1..5, look: system|custom|paper|pink|mint|sky|sunset|grape|noel|night|aurora|graphite (chủ đề: bảng màu + thanh bên; custom dùng lookCustom), order: [id...], notifySound: true|false, keepAwakeAc: true|false, keepAwakeBattery: true|false, reloadOnWake: true|false }
 // mặc định tất cả app đều bật
 function load() {
   try {
@@ -34,7 +34,7 @@ function load() {
         : []
     };
   } catch {
-    return { disabled: [], removed: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', look: 'system', lookCustom: '#2b5cff', order: [], notifySound: true, keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', updateDismissed: '' };
+    return { disabled: [], removed: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', look: 'system', lookCustom: '#2b5cff', lookCustomBg: 'none', lookCustomDensity: 3, order: [], notifySound: true, keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', updateDismissed: '' };
   }
 }
 

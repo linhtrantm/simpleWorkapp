@@ -32,7 +32,7 @@
       canvas.width = Math.round(s.w * dpr);
       canvas.height = Math.round(s.h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const n = Math.max(14, Math.min(70, Math.round((s.w * s.h) / 11000)));
+      const n = Math.max(12, Math.min(60, Math.round((s.w * s.h) / 12900)));
       s.flakes = Array.from({ length: n }, () => {
         const q = Math.random();
         const z = q < 0.55 ? 0 : q < 0.88 ? 1 : 2; // xa, vừa, gần (hạt gần vẽ thành bông tuyết 6 cánh)

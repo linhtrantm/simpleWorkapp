@@ -32,7 +32,7 @@ const LOAD_TIMEOUT_MS = 10000; // quá thời gian này vẫn hiện trang dù c
 const SPLASH_MIN_MS = 1600;
 const SPLASH_MAX_MS = 10000;
 // Bảng màu người dùng chọn (null = theo sáng/tối của hệ thống)
-const lookInfo = () => swTheme.resolveTheme(settings.look, settings.lookCustom); // { palette, frame } hoặc null
+const lookInfo = () => swTheme.resolveTheme(settings.look, settings.lookCustom, { bg: settings.lookCustomBg, density: settings.lookCustomDensity }); // { palette, frame } hoặc null
 const bgColor = () => (lookInfo() ? lookInfo().palette.bg : nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#f2f2f7');
 const windowBg = () => (lookInfo() ? lookInfo().frame.base : bgColor());
 // Chủ đề cố định sáng hoặc tối thì cả trang web cũng theo; chủ đề 'system' thì theo lựa chọn Tự động/Sáng/Tối
@@ -55,7 +55,7 @@ let dayTray = null;
 let dayTraySig = '';
 let dayBeatTimer = null;
 let splashView = null;
-let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', notifySound: true, disabled: [], removed: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', look: 'system', lookCustom: '#2b5cff', order: [] };
+let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', notifySound: true, disabled: [], removed: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', look: 'system', lookCustom: '#2b5cff', lookCustomBg: 'none', lookCustomDensity: 3, order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
@@ -171,6 +171,8 @@ function settingsState() {
     theme: settings.theme,
     look: settings.look,
     lookCustom: settings.lookCustom,
+    lookCustomBg: settings.lookCustomBg,
+    lookCustomDensity: settings.lookCustomDensity,
     notifySound: settings.notifySound,
     keepAwakeAc: settings.keepAwakeAc,
     keepAwakeBattery: settings.keepAwakeBattery,
@@ -1263,6 +1265,20 @@ ipcMain.on('settings:set-look-custom', (_e, hex) => {
   if (!swTheme.isHex(hex)) return;
   settings.look = 'custom';
   settings.lookCustom = hex.toLowerCase();
+  themeChanged();
+});
+// Hoạ tiết và mật độ của chủ đề tự pha; chọn là chuyển luôn sang chủ đề tự pha
+ipcMain.on('settings:set-look-deco', (_e, deco) => {
+  if (!deco || typeof deco !== 'object') return;
+  if (deco.bg !== undefined) {
+    if (!swTheme.PATTERN_IDS.includes(deco.bg)) return;
+    settings.lookCustomBg = deco.bg;
+  }
+  if (deco.density !== undefined) {
+    if (!Number.isInteger(deco.density) || deco.density < 1 || deco.density > 5) return;
+    settings.lookCustomDensity = deco.density;
+  }
+  settings.look = 'custom';
   themeChanged();
 });
 ipcMain.on('settings:set-order', (_e, ids) => {

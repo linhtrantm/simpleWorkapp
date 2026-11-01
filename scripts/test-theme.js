@@ -183,6 +183,37 @@ test('mỗi chủ đề có kiểu thẻ và hoạ tiết nền hợp lệ, appl
   assert.equal(doc.documentElement.dataset.font, 'default');
 });
 
+test('hoạ tiết và mật độ của chủ đề tự pha: chọn được, giá trị lạ về mặc định, chủ đề có sẵn không bị ảnh hưởng', () => {
+  assert.deepEqual(theme.PATTERN_IDS, ['none', 'hearts', 'flowers', 'tulips', 'dots', 'grid']);
+  const c = theme.resolveTheme('custom', '#2b5cff', { bg: 'tulips', density: 5 });
+  assert.equal(c.bg, 'tulips');
+  assert.equal(c.k, theme.DENSITY_K[4]);
+  assert.equal(theme.resolveTheme('custom', '#2b5cff', { bg: 'rác', density: 99 }).bg, 'none');
+  assert.equal(theme.resolveTheme('custom', '#2b5cff', { bg: 'hearts', density: 99 }).k, theme.densityK(3));
+  assert.equal(theme.resolveTheme('custom', '#2b5cff').bg, 'none');
+  // chủ đề có sẵn giữ hoạ tiết riêng và mức mặc định dù có truyền deco
+  const p = theme.resolveTheme('pink', null, { bg: 'tulips', density: 1 });
+  assert.equal(p.bg, 'hearts');
+  assert.equal(p.k, theme.densityK(3));
+  // mức mặc định thưa hơn bản cũ 15%: số hoạ tiết trên một diện tích = 1/k^2, cần giảm tối thiểu 15%
+  assert.ok(1 / (theme.densityK(3) * theme.densityK(3)) <= 0.85 + 1e-9);
+  // k giảm dần theo mức (mức cao dày hơn)
+  for (let i = 1; i < 5; i++) assert.ok(theme.DENSITY_K[i] < theme.DENSITY_K[i - 1]);
+  const m = theme.migrateLook({ look: 'custom', lookCustom: '#112233', lookCustomBg: 'flowers', lookCustomDensity: 2 });
+  assert.equal(m.lookCustomBg, 'flowers');
+  assert.equal(m.lookCustomDensity, 2);
+  const bad = theme.migrateLook({ look: 'pink', lookCustomBg: 'x', lookCustomDensity: 'y' });
+  assert.equal(bad.lookCustomBg, 'none');
+  assert.equal(bad.lookCustomDensity, 3);
+  const props = new Map();
+  const doc = { documentElement: { style: { setProperty: (k, v) => props.set(k, v), removeProperty() {} }, dataset: {} }, getElementById: () => null };
+  theme.applyLook(c, doc);
+  assert.equal(props.get('--pat-k'), String(theme.DENSITY_K[4]));
+  assert.equal(doc.documentElement.dataset.bg, 'tulips');
+  theme.applyLook(null, doc);
+  assert.equal(props.get('--pat-k'), String(theme.densityK(3)));
+});
+
 test('applyLook: ghi màu nhấn của chủ đề, data-look, gỡ về mặc định khi null', () => {
   const props = new Map();
   const doc = { documentElement: { dataset: {}, style: { setProperty: (k, v) => props.set(k, v), removeProperty: (k) => props.delete(k) } } };
@@ -222,7 +253,12 @@ test('đã bỏ màu nhấn tuỳ chọn: apply ghi một màu cố định, ch�
 });
 
 test('migrateLook: chuyển lựa chọn cũ (palette, frame) sang chủ đề mới, giá trị lạ về theo hệ thống', () => {
-  const m = (d) => theme.migrateLook(d);
+  const m = (d) => {
+    const r = theme.migrateLook(d);
+    delete r.lookCustomBg; // hoạ tiết và mật độ có test riêng
+    delete r.lookCustomDensity;
+    return r;
+  };
   assert.equal(m({ palette: 'noel', accent: 'custom', frame: 'accent' }).look, 'noel');
   assert.equal(m({ frame: 'ocean' }).look, 'sky');
   assert.equal(m({ frame: 'forest' }).look, 'mint');

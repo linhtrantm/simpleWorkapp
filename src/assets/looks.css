@@ -11,12 +11,12 @@ html[data-look]:not([data-look='system']) .notes, html[data-look]:not([data-look
 html[data-bg]:not([data-bg='none']):not([data-bg='noel']) body:not(:has(#side))::before {
   content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background-color: var(--border2); opacity: .55;
 }
-html[data-bg='grid'] body:not(:has(#side))::before { background-image: linear-gradient(var(--border2) 1px, transparent 1px), linear-gradient(90deg, var(--border2) 1px, transparent 1px); background-size: 28px 28px; background-color: transparent !important; }
-html[data-bg='dots'] body:not(:has(#side))::before { background-image: radial-gradient(var(--border2) 2px, transparent 2.5px); background-size: 24px 24px; background-color: transparent !important; }
+html[data-bg='grid'] body:not(:has(#side))::before { background-image: linear-gradient(var(--border2) 1px, transparent 1px), linear-gradient(90deg, var(--border2) 1px, transparent 1px); background-size: calc(28px * var(--pat-k)) calc(28px * var(--pat-k)); background-color: transparent !important; }
+html[data-bg='dots'] body:not(:has(#side))::before { background-image: radial-gradient(var(--border2) 2px, transparent 2.5px); background-size: calc(24px * var(--pat-k)) calc(24px * var(--pat-k)); background-color: transparent !important; }
 html[data-bg='hearts']:not([data-bg='none']):not([data-bg='noel']) body:not(:has(#side))::before, html[data-bg='flowers']:not([data-bg='none']):not([data-bg='noel']) body:not(:has(#side))::before, html[data-bg='tulips']:not([data-bg='none']):not([data-bg='noel']) body:not(:has(#side))::before { background-color: color-mix(in srgb, var(--accent) 15%, transparent); opacity: 1; }
-html[data-bg='hearts'] body:not(:has(#side))::before { -webkit-mask-image: var(--pat-hearts); mask-image: var(--pat-hearts); }
-html[data-bg='flowers'] body:not(:has(#side))::before { -webkit-mask-image: var(--pat-flowers); mask-image: var(--pat-flowers); }
-html[data-bg='tulips'] body:not(:has(#side))::before { -webkit-mask-image: var(--pat-tulips); mask-image: var(--pat-tulips); }
+html[data-bg='hearts'] body:not(:has(#side))::before { -webkit-mask-image: var(--pat-hearts); mask-image: var(--pat-hearts); -webkit-mask-size: calc(72px * var(--pat-k)) calc(72px * var(--pat-k)); mask-size: calc(72px * var(--pat-k)) calc(72px * var(--pat-k)); }
+html[data-bg='flowers'] body:not(:has(#side))::before { -webkit-mask-image: var(--pat-flowers); mask-image: var(--pat-flowers); -webkit-mask-size: calc(80px * var(--pat-k)) calc(80px * var(--pat-k)); mask-size: calc(80px * var(--pat-k)) calc(80px * var(--pat-k)); }
+html[data-bg='tulips'] body:not(:has(#side))::before { -webkit-mask-image: var(--pat-tulips); mask-image: var(--pat-tulips); -webkit-mask-size: calc(80px * var(--pat-k)) calc(80px * var(--pat-k)); mask-size: calc(80px * var(--pat-k)) calc(80px * var(--pat-k)); }
 
 /* Kiểu thẻ: sticker = viền dày và bóng lệch */
 html[data-dstyle='sticker'] .list, html[data-dstyle='sticker'] .carry, html[data-dstyle='sticker'] .notes, html[data-dstyle='sticker'] .form, html[data-dstyle='sticker'] #card {

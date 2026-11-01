@@ -20,6 +20,7 @@ html[data-look='noel'] body:not(:has(#side))::before {
     radial-gradient(circle at 92% 70%, rgba(240, 160, 96, .36), transparent 32%),
     radial-gradient(circle at 72% 8%, rgba(255, 255, 255, .45), transparent 30%),
     radial-gradient(circle at 30% 96%, rgba(214, 69, 93, .14), transparent 30%);
+  background-size: calc(180px * var(--pat-k)) calc(180px * var(--pat-k)), auto, auto, auto, auto;
 }
 
 /* Thẻ: viền nâu dày, bóng lệch, góc bo như vẽ tay; tuyết đọng trên mép */

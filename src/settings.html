@@ -112,6 +112,16 @@
     .frame .pv.conic i { background: conic-gradient(#f43f5e, #f59e0b, #84cc16, #06b6d4, #6366f1, #d946ef, #f43f5e); }
     .mix { margin-top: 14px; padding: 16px; border: 1px solid var(--border2); border-radius: 14px; background: var(--surface); display: grid; gap: 12px; max-width: 420px; }
     .mix[hidden] { display: none; }
+    .decoRow { display: grid; gap: 8px; }
+    .decoLabel { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+    .pats { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pats button { min-height: 34px; border: 1px solid var(--border2); background: var(--input); color: var(--text); border-radius: 10px; padding: 0 12px; font: 600 12.5px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .pats button:hover { border-color: var(--accent); }
+    .pats button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    .pats .g { font-size: 15px; line-height: 1; }
+    .mix label.dens { grid-template-columns: 52px 1fr 64px; }
+    #patDens { background: var(--border2); }
+    .mix label.dens output { font-family: inherit; font-size: 11.5px; }
     .mix .top { display: flex; align-items: center; gap: 12px; }
     .mix .sw { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--border2); flex: none; }
     .mix input[type=text] { width: 110px; user-select: text; -webkit-user-select: text; background: var(--input); border: 1px solid var(--border2); border-radius: 9px; color: var(--text); padding: 8px 10px; font: 13px var(--mono); outline: none; }
@@ -200,6 +210,10 @@
       <h2 data-i18n="lookHeading">Chủ đề</h2>
       <div class="frames" id="looks"></div>
       <div class="mix" id="lookMix" hidden></div>
+      <div class="mix" id="lookDeco" hidden>
+        <div class="decoRow"><span class="decoLabel" data-i18n="patLabel">Hình nền</span><div class="pats" id="pats"></div></div>
+        <label class="dens"><span data-i18n="patDensity">Mật độ</span><input type="range" id="patDens" min="1" max="5" step="1"><output id="patDensOut"></output></label>
+      </div>
       <div class="group" id="modeGroup" style="margin-top:18px">
         <div class="seg" id="themes">
           <button data-theme="system" data-i18n="themeSystem">Tự động</button>
