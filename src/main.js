@@ -63,6 +63,11 @@ const unread = new Map(); // id -> số hiển thị trên badge
 const titleUnread = new Map(); // id -> số lớn nhất đọc từ title "(3) ..." kể từ lần xem gần nhất
 const loadState = new Map(); // id -> 'loading' | 'ready' | 'failed'
 const loadError = new Map();
+const loadKind = new Map(); // id -> 'network' khi lỗi do mất kết nối (máy ngủ, đổi mạng...) chứ không phải lỗi của trang
+const loadRetry = new Map(); // id -> số lần tự kết nối lại đã thử
+const NET_CODES = new Set([-7, -21, -100, -101, -102, -104, -105, -106, -109, -118, -130, -324]); // mã lỗi mạng của Chromium: hết giờ, đổi mạng, đứt, không phân giải được tên miền, mất mạng...
+const retryTimers = new Map(); // id -> hẹn giờ tự kết nối lại đang chờ
+const NET_RETRY_MS = [3000, 10000, 25000]; // tự thử lại 3 lần trước khi hiện màn hình "đang nghỉ"
 const loadTimers = new Map();
 const handoff = new Set(); // app đang được mở ở trình duyệt ngoài: làm mờ, khoá, tắt thông báo
 const handoffCss = new Map(); // id -> key CSS đã chèn
@@ -156,7 +161,7 @@ function sendState() {
     handoff: [...handoff],
     version: app.getVersion(),
     canOpenExternal: !!activeId,
-    load: { state: (activeId && loadState.get(activeId)) || 'ready', error: (activeId && loadError.get(activeId)) || '' },
+    load: { state: (activeId && loadState.get(activeId)) || 'ready', error: (activeId && loadError.get(activeId)) || '', kind: (activeId && loadKind.get(activeId)) || '', retry: (activeId && loadRetry.get(activeId)) || 0 },
     lang: settings.lang,
     look: lookInfo(),
     ui: ui()
@@ -297,12 +302,36 @@ function createView(tab) {
     if (handoff.has(tab.id)) applyHandoffCss(tab.id);
   });
   // Trạng thái tải: ẩn trang web cho tới khi tải xong, trong lúc đó thanh bên hiện màn hình chờ
+  let failedThisLoad = false; // lần tải này đã báo lỗi: did-stop-loading đến sau không được coi là tải xong
+  wc.on('did-start-loading', () => (failedThisLoad = false));
   wc.on('did-stop-loading', () => {
+    if (failedThisLoad) return;
+    loadRetry.delete(tab.id); // tải được rồi thì lần sau mất mạng lại được tự thử lại từ đầu
     if (loadState.get(tab.id) === 'loading') setLoad(tab.id, 'ready');
   });
   wc.on('did-fail-load', (_e, code, desc, url, isMain) => {
     if (!isMain || code === -3) return; // -3 = bị huỷ (điều hướng tiếp)
     console.error(`[${tab.id}] load fail ${code} ${desc} ${url}`);
+    failedThisLoad = true;
+    if (NET_CODES.has(code)) {
+      // Mất kết nối (máy vừa ngủ dậy, đổi mạng...): tự thử lại vài lần, chưa hiện lỗi
+      const n = loadRetry.get(tab.id) || 0;
+      if (n < NET_RETRY_MS.length) {
+        loadRetry.set(tab.id, n + 1);
+        setLoad(tab.id, 'loading');
+        clearTimeout(retryTimers.get(tab.id));
+        retryTimers.set(
+          tab.id,
+          setTimeout(() => {
+            retryTimers.delete(tab.id);
+            const v = views.get(tab.id);
+            if (v && !v.webContents.isDestroyed()) v.webContents.loadURL(tab.url);
+          }, NET_RETRY_MS[n])
+        );
+        return;
+      }
+      loadKind.set(tab.id, 'network');
+    } else loadKind.delete(tab.id);
     setLoad(tab.id, 'failed', `${desc} (${code})`);
   });
   views.set(tab.id, view);
@@ -315,6 +344,7 @@ function createView(tab) {
 
 function setLoad(id, state, err) {
   loadState.set(id, state);
+  if (state !== 'failed') loadKind.delete(id);
   if (err) loadError.set(id, err);
   else loadError.delete(id);
   clearTimeout(loadTimers.get(id));
@@ -322,7 +352,7 @@ function setLoad(id, state, err) {
     loadTimers.set(
       id,
       setTimeout(() => {
-        if (loadState.get(id) === 'loading') setLoad(id, 'ready');
+        if (loadState.get(id) === 'loading' && !retryTimers.has(id)) setLoad(id, 'ready'); // đang chờ tự kết nối lại thì chưa lộ trang trắng
       }, LOAD_TIMEOUT_MS)
     );
   }
@@ -436,6 +466,10 @@ function destroyView(id) {
   clearTimeout(loadTimers.get(id));
   loadState.delete(id);
   loadError.delete(id);
+  loadKind.delete(id);
+  loadRetry.delete(id);
+  clearTimeout(retryTimers.get(id));
+  retryTimers.delete(id);
   unread.delete(id);
   titleUnread.delete(id);
   notifUnread.delete(id);
@@ -1017,6 +1051,10 @@ let sleepStartedAt = 0;
 function refreshAfterWake() {
   const slept = sleepStartedAt ? Date.now() - sleepStartedAt : 0;
   sleepStartedAt = 0;
+  // App đang ở màn hình "mất kết nối" thì tự nối lại khi mạng về, dù có bật tải lại sau khi ngủ hay không
+  setTimeout(() => {
+    for (const [id, st] of loadState) if (st === 'failed' && loadKind.get(id) === 'network') reloadTab(id);
+  }, 6000);
   if (!settings.reloadOnWake || slept < 60 * 1000) return;
   setTimeout(() => {
     const reloaded = [];
@@ -1134,6 +1172,9 @@ function reloadTab(id) {
     selectTab(id);
     return;
   }
+  loadRetry.delete(id);
+  clearTimeout(retryTimers.get(id));
+  retryTimers.delete(id);
   setLoad(id, 'loading');
   if (loadError.has(id) || !v.webContents.getURL()) v.webContents.loadURL(tab.url);
   else v.webContents.reload();

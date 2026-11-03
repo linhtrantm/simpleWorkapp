@@ -74,7 +74,7 @@ function renderStage(state, tab) {
   const msg = document.createElement('div');
   msg.className = 'msg';
   if (load.state === 'loading') {
-    msg.textContent = i18n.t(lang, 'loadingApp', { name: tab.name });
+    msg.textContent = i18n.t(lang, load.retry ? 'netReconnecting' : 'loadingApp', { name: tab.name });
     const dots = document.createElement('div');
     dots.className = 'dots';
     dots.innerHTML = '<i></i><i></i><i></i>';
@@ -82,18 +82,20 @@ function renderStage(state, tab) {
   } else {
     big.style.animation = 'none';
     big.style.opacity = '.6';
-    msg.textContent = i18n.t(lang, 'loadFailed', { name: tab.name });
+    const idle = load.kind === 'network'; // mất kết nối do máy ngủ hoặc đổi mạng: không phải lỗi phần mềm
+    msg.textContent = i18n.t(lang, idle ? 'netIdle' : 'loadFailed', { name: tab.name });
     const sub = document.createElement('div');
     sub.className = 'sub';
-    sub.textContent = i18n.t(lang, 'loadFailedHint');
+    sub.textContent = i18n.t(lang, idle ? 'netIdleHint' : 'loadFailedHint');
     const code = document.createElement('div');
     code.className = 'code';
-    code.textContent = load.error || '';
+    code.textContent = load.error ? (idle ? i18n.t(lang, 'netIdleCode') + ' ' : '') + load.error : '';
+    if (idle) code.style.opacity = '.5';
     const retry = document.createElement('button');
     retry.className = 'retry';
-    retry.textContent = i18n.t(lang, 'retry');
+    retry.textContent = i18n.t(lang, idle ? 'netReconnect' : 'retry');
     retry.addEventListener('click', () => window.simpleWork.reload(tab.id));
-    stage.replaceChildren(big, msg, sub, code, retry);
+    stage.replaceChildren(big, msg, sub, retry, code);
   }
 }
 
