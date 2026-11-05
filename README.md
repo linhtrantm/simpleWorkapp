@@ -2,14 +2,14 @@
 
 App desktop macOS (Electron) gom Zalo, WhatsApp, Teams, Messenger, Claude và các web app tuỳ ý vào một cửa sổ. Mỗi app có phiên đăng nhập riêng, giữ nguyên qua các lần mở và các lần cập nhật.
 
-Phiên bản hiện tại: **1.10.1** (macOS, Apple Silicon).
+Phiên bản hiện tại: **1.11.0** (macOS, Apple Silicon).
 
 ## Tính năng
 
 - **Giao diện theo chủ đề:** mỗi chủ đề có bảng màu, kiểu thẻ, hoạ tiết nền và font riêng (xem mục Giao diện và font). Thanh bên có icon app dạng squircle một màu (icon Zalo dùng icon chính thức). Chủ đề "Theo hệ thống" tự theo chế độ sáng/tối của macOS.
 - **Việc cần làm** (icon ✓ xanh lá trên thanh bên, bật/tắt, kéo đổi chỗ và xoá trong Cài đặt như các app khác). Dữ liệu lưu ngay vào `daytask.json`.
   - **Trang chia ba tab:** *Hôm nay* (danh sách, ô thêm việc cố định ở đáy với hiệu ứng "gửi", nhóm Đã xong gập lại), *Lặp lại*, *Nhắc nhở*. Nút và vùng bấm cao tối thiểu 34 đến 40px, nút Bắt đầu và Xoá luôn hiện.
-  - **Việc:** thêm bằng ô nhập + Enter, bấm vòng tròn để đánh xong, bấm vào tên để sửa, kéo ⋮⋮ để đổi thứ tự. Bấm vào một việc (chỗ trống của dòng hoặc nút ›) mở **ngăn chi tiết** bên phải: sửa tiêu đề, **mô tả nhiều dòng** (tự lưu sau 0,6 giây ngừng gõ, tối đa 5000 ký tự, lưu trong trường `note`), ngày tạo, thời gian đã làm. Việc có mô tả hiện icon ≡ ở dòng; Esc đóng ngăn.
+  - **Việc:** thêm bằng ô nhập + Enter, bấm vòng tròn để đánh xong, bấm vào tên để sửa, kéo ⋮⋮ để đổi thứ tự. Bấm vào một việc (chỗ trống của dòng hoặc nút ›) mở **ngăn chi tiết** bên phải: sửa tiêu đề, **mô tả nhiều dòng** (tự lưu sau 0,6 giây ngừng gõ, tối đa 5000 ký tự, lưu trong trường `note`), ngày tạo, thời gian đã làm. Việc có mô tả hiện icon ≡ ở dòng; Esc đóng ngăn. Mỗi việc (việc cha) có thể có tối đa 30 **việc con** (checklist) nằm ngay trong ngăn chi tiết, phía trên ô mô tả: gõ vào ô "Thêm việc con" rồi Enter (ô giữ nguyên tiêu điểm để gõ liền việc tiếp), bấm vòng tròn để đánh xong, bấm vào tên để sửa, ✕ để xoá, có thanh tiến độ. Dòng việc cha hiện chip ✓ 2/4, đổi màu khi xong hết. Đánh xong việc con không tự đánh xong việc cha.
   - **Bắt đầu và thời gian:** mỗi việc có nút **Bắt đầu**, chỉ một việc được "đang làm", tên việc đó hiện trên **menu bar** (icon ✓ thứ hai, bấm để Tạm dừng / Xong). Nút **Xong** chỉ tác động lên việc đang làm. Bắt đầu việc khác khi đang có việc chạy thì app hỏi tạm dừng hay đánh Xong việc cũ. Thời gian ghi theo từng phiên; tắt app hay máy ngủ thì phiên chỉ tính tới lần ghi nhịp cuối.
   - **Ngày:** ghi việc cho **ngày mai hay ngày sau** (nút ‹ Hôm nay · Ngày mai › và nút lịch); tới ngày đó việc tự thành việc hôm nay, có nút dời về hôm nay. Việc chưa xong của hôm trước được hỏi có dồn sang hôm nay không (mỗi ngày hỏi một lần). **Việc lặp lại** (chọn thứ trong tuần) tự sinh việc mỗi ngày.
   - **Nhắc:** thông báo buổi sáng (mặc định 08:30; lỡ giờ vì máy ngủ thì báo ngay khi máy thức, tới trưa thì thôi), tổng kết cuối ngày (17:30), nhắc khi 15 phút chưa chọn việc đang làm. Máy im quá 10 phút hoặc vừa ngủ dậy mà còn việc đang chạy thì app hỏi còn làm không, có thể cắt thời gian về lúc rời máy. Mọi mốc giờ và công tắc chỉnh ngay ở tab Nhắc nhở.
@@ -39,7 +39,7 @@ Nếu chạy trong terminal của VSCode mà app crash ngay, thử `env -u ELECT
 npm run dist
 ```
 
-Kết quả: `dist/simpleWork-1.10.1-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
+Kết quả: `dist/simpleWork-1.11.0-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
 
 App được ký **ad-hoc**, chưa có Apple Developer ID nên chưa notarize. Ký ad-hoc là điều kiện để macOS đưa app vào mục Thông báo. Lần đầu mở nếu bị Gatekeeper chặn: chuột phải vào app > Open, hoặc `xattr -cr /Applications/simpleWork.app`.
 

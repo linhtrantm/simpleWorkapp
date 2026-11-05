@@ -17,6 +17,97 @@ function test(name, fn) {
 const D = (s) => s; // ngày cho dễ đọc
 const T0 = Date.UTC(2026, 9, 25, 3, 0, 0);
 
+test('việc con: thêm, đổi tên, tick, xoá, giới hạn 30, bỏ mục hỏng khi đọc, đi theo việc cha khi dời ngày', () => {
+  const data = core.emptyData();
+  const t = core.addTask(data, { title: 'Cha', date: D('2026-10-25') });
+  assert.deepEqual(t.subs, []);
+  assert.equal(core.addSub(data, t.id, '   '), null); // rỗng
+  assert.equal(core.addSub(data, 'khong-co', 'x'), null); // việc không tồn tại
+  const a = core.addSub(data, t.id, '  Làm   bước 1 ');
+  const b = core.addSub(data, t.id, 'Bước 2');
+  assert.equal(a.title, 'Làm bước 1');
+  assert.deepEqual(t.subs.map((x) => x.title), ['Làm bước 1', 'Bước 2']);
+  core.toggleSub(data, t.id, a.id);
+  assert.equal(a.done, true);
+  core.toggleSub(data, t.id, a.id);
+  assert.equal(a.done, false);
+  core.toggleSub(data, t.id, b.id);
+  assert.equal(core.renameSub(data, t.id, b.id, '  Bước hai '), b);
+  assert.equal(b.title, 'Bước hai');
+  assert.equal(core.renameSub(data, t.id, b.id, '  '), null); // tiêu đề rỗng giữ nguyên
+  assert.equal(b.title, 'Bước hai');
+  assert.equal(core.toggleSub(data, t.id, 'khong-co'), null);
+  const v = core.view(data, D('2026-10-25'));
+  assert.equal(v.todo[0].subs.length, 2);
+  assert.equal(v.todo[0].subsDone, 1);
+  // đọc lại từ đĩa: bỏ việc con hỏng, trùng id, rỗng; cắt tối đa 30
+  const raw = JSON.parse(JSON.stringify(data));
+  raw.tasks[0].subs.push(null, { id: a.id, title: 'trùng id' }, { id: 'z', title: '' }, { id: 'ok', title: 'Hợp lệ', done: true });
+  const back = core.normalize(raw);
+  assert.deepEqual(back.tasks[0].subs.map((x) => x.id), [a.id, b.id, 'ok']);
+  assert.equal(back.tasks[0].subs[2].done, true);
+  assert.deepEqual(core.normalize({ tasks: [{ id: 'k', title: 'cũ', date: '2026-10-25', status: 'todo' }] }).tasks[0].subs, []); // file cũ chưa có việc con
+  for (let i = 0; i < 40; i++) core.addSub(data, t.id, 'v' + i);
+  assert.equal(t.subs.length, core.SUB_MAX);
+  assert.equal(core.addSub(data, t.id, 'thừa'), null);
+  // dời ngày: việc con đi theo
+  core.moveTask(data, t.id, D('2026-10-26'), D('2026-10-25'));
+  assert.equal(core.view(data, D('2026-10-25'), D('2026-10-26')).todo[0].subs.length, core.SUB_MAX);
+  assert.equal(core.removeSub(data, t.id, a.id), true);
+  assert.equal(core.removeSub(data, t.id, a.id), false);
+  assert.equal(t.subs.length, core.SUB_MAX - 1);
+  assert.equal(core.removeTask(data, t.id), true); // xoá cha là mất cả việc con
+});
+
+test('việc cha chỉ đóng được khi mọi việc con đã xong (tick, nút Xong, đánh Xong rồi chuyển việc), mở lại khi việc con mở lại', () => {
+  const data = core.emptyData();
+  const t = core.addTask(data, { title: 'Cha', date: D('2026-10-25') }, T0);
+  const other = core.addTask(data, { title: 'Khác', date: D('2026-10-25') }, T0);
+  const a = core.addSub(data, t.id, 'Con 1');
+  const b = core.addSub(data, t.id, 'Con 2');
+  assert.equal(core.canComplete(data, t.id), false);
+  assert.equal(core.openSubs(t), 2);
+  // tick bị từ chối, không đổi gì
+  assert.equal(core.toggleTask(data, t.id, T0 + 1), null);
+  assert.equal(t.status, 'todo');
+  // việc đang làm: nút Xong bị từ chối, phiên vẫn chạy
+  core.startTask(data, t.id, undefined, T0 + 10);
+  assert.equal(core.doneActive(data, T0 + 20), null);
+  assert.equal(data.active.taskId, t.id);
+  assert.equal(t.status, 'todo');
+  // bắt đầu việc khác và chọn "Xong rồi chuyển": từ chối, việc đang làm giữ nguyên
+  const r = core.startTask(data, other.id, 'done', T0 + 30);
+  assert.equal(r.error, 'subs');
+  assert.equal(data.active.taskId, t.id);
+  assert.equal(other.status, 'todo');
+  // chọn "Tạm dừng rồi chuyển" vẫn được
+  assert.equal(core.startTask(data, other.id, 'pause', T0 + 40).ok, true);
+  core.startTask(data, t.id, 'pause', T0 + 50);
+  // xong từng việc con: còn một việc con thì vẫn chưa được
+  core.toggleSub(data, t.id, a.id);
+  assert.equal(core.doneActive(data, T0 + 60), null);
+  core.toggleSub(data, t.id, b.id);
+  assert.equal(core.canComplete(data, t.id), true);
+  const done = core.doneActive(data, T0 + 70);
+  assert.equal(done.status, 'done');
+  assert.equal(data.active, null);
+  // việc cha đã xong: thêm việc con mới hoặc bỏ tick một việc con thì mở lại việc cha
+  core.addSub(data, t.id, 'Con 3');
+  assert.equal(t.status, 'todo');
+  assert.equal(t.completedAt, null);
+  core.toggleSub(data, t.id, core.addSub(data, t.id, 'Con 4').id); // Con 4 xong nhưng Con 3 chưa
+  assert.equal(core.toggleTask(data, t.id), null); // vẫn còn Con 3 chưa xong
+  for (const x of t.subs) if (!x.done) core.toggleSub(data, t.id, x.id);
+  assert.equal(core.toggleTask(data, t.id, T0 + 80).status, 'done');
+  core.toggleSub(data, t.id, a.id); // bỏ tick một việc con của việc cha đã xong
+  assert.equal(t.status, 'todo');
+  // bỏ đánh xong việc cha luôn được; việc không có việc con đóng bình thường
+  core.toggleSub(data, t.id, a.id);
+  assert.equal(core.toggleTask(data, t.id, T0 + 90).status, 'done');
+  assert.equal(core.toggleTask(data, t.id, T0 + 95).status, 'todo');
+  assert.equal(core.toggleTask(data, other.id, T0 + 100).status, 'done');
+});
+
 test('mô tả chi tiết: giữ xuống dòng, bỏ ký tự điều khiển, cắt 5000, sửa được, đọc lại từ đĩa', () => {
   const data = core.emptyData();
   const t = core.addTask(data, { title: 'A', date: D('2026-10-25') });

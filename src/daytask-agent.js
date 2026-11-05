@@ -34,6 +34,16 @@ function notify(title, body) {
   n.show();
 }
 
+// Đánh Xong việc đang làm từ phím tắt hoặc menu bar: còn việc con chưa xong thì không đóng, báo cho người dùng biết
+function doneWithNotice() {
+  const r = ctx.store.done();
+  if (r && r.error === 'subs') {
+    const t = r.todo.find((x) => x.id === r.blockedId);
+    notify(ctx.T('daySubsBlockedTitle'), ctx.T('daySubsFirst', { done: t ? t.subsDone : 0, total: t ? t.subs.length : 0 }));
+  }
+  return r;
+}
+
 // ---- Thông báo buổi sáng và tổng kết cuối ngày ----
 function morning(now, p) {
   if (!p.morningOn || ctx.store.marked('morning')) return;
@@ -136,7 +146,7 @@ function syncShortcuts() {
   shortcutsOn = want;
   if (want) {
     globalShortcut.register(KEYS.pause, runToggle);
-    globalShortcut.register(KEYS.done, () => ctx.store.done());
+    globalShortcut.register(KEYS.done, doneWithNotice);
     globalShortcut.register(KEYS.open, () => ctx.openPage());
   } else {
     for (const k of Object.values(KEYS)) globalShortcut.unregister(k);
@@ -227,4 +237,4 @@ function stop() {
   widget = null;
 }
 
-module.exports = { init, sync, stop, tick, morning, evening };
+module.exports = { init, sync, stop, tick, morning, evening, doneWithNotice };

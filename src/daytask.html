@@ -120,8 +120,38 @@
     #drawer .dbody { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 20px 24px; display: flex; flex-direction: column; gap: 14px; }
     #dTitle { width: 100%; box-sizing: border-box; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text); font: 800 20px -apple-system, BlinkMacSystemFont, sans-serif; letter-spacing: -.02em; padding: 6px 0; outline: none; }
     #dTitle:focus { border-bottom-color: var(--accent); }
-    #dNote { width: 100%; box-sizing: border-box; min-height: 180px; max-height: 55vh; resize: none; border: 1px solid var(--border2); border-radius: 16px; background: var(--input); color: var(--text); font: 15px/1.55 -apple-system, BlinkMacSystemFont, sans-serif; padding: 14px 16px; outline: none; user-select: text; -webkit-user-select: text; }
+    #dNote { width: 100%; box-sizing: border-box; min-height: 140px; max-height: 55vh; resize: none; border: 1px solid var(--border2); border-radius: 16px; background: var(--input); color: var(--text); font: 15px/1.55 -apple-system, BlinkMacSystemFont, sans-serif; padding: 14px 16px; outline: none; user-select: text; -webkit-user-select: text; }
     #dNote:focus { border-color: var(--accent); }
+    .subs { display: flex; flex-direction: column; gap: 4px; }
+    .shead { display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+    #dSubCount { font-family: var(--mono); letter-spacing: 0; }
+    .sbar { flex: 1; height: 6px; border-radius: 3px; background: var(--s2); overflow: hidden; }
+    .sbar i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--accent); transition: width .3s; }
+    .sub { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 6px; border-radius: 12px; }
+    .sub:hover { background: var(--s1); }
+    .sub .tick { width: 22px; height: 22px; }
+    .sub .stitle { flex: 1; font-size: 14.5px; line-height: 1.4; outline: none; word-break: break-word; user-select: text; -webkit-user-select: text; }
+    .sub.sdone .stitle { color: var(--muted); text-decoration: line-through; }
+    .sub.sdone .tick { background: var(--accent); border-color: var(--accent); }
+    .sub.sdone .tick::after { content: '✓'; position: absolute; inset: 0; color: var(--on-accent); font-size: 13px; line-height: 18px; text-align: center; font-weight: 800; }
+    .sub .sdel { width: 28px; height: 28px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; border-radius: 8px; opacity: .4; flex: none; }
+    .sub:hover .sdel { opacity: 1; }
+    .sub .sdel:hover { color: #f87171; background: var(--s2); }
+    .sadd { position: relative; margin-top: 2px; }
+    .sadd .plus { position: absolute; left: 14px; top: 50%; transform: translateY(-52%); font-size: 18px; font-weight: 600; color: var(--accent); pointer-events: none; }
+    #dSubAdd { width: 100%; box-sizing: border-box; height: 42px; border: 1px dashed var(--border2); border-radius: 12px; background: transparent; color: var(--text); font: 14.5px -apple-system, BlinkMacSystemFont, sans-serif; padding: 0 12px 0 36px; outline: none; }
+    #dSubAdd:focus { border-style: solid; border-color: var(--accent); background: var(--input); }
+    .dlabel { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: -6px; }
+    .stag { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--muted); background: var(--s1); border-radius: 8px; padding: 3px 8px; flex: none; white-space: nowrap; }
+    .stag svg { width: 12px; height: 12px; }
+    .stag.all { color: var(--on-accent); background: var(--accent); }
+    .tick.locked { border-style: dashed; opacity: .6; }
+    .tick.locked:hover { border-color: var(--muted); cursor: not-allowed; }
+    #toast { position: fixed; left: 50%; bottom: 96px; z-index: 80; max-width: min(460px, calc(100% - 40px)); transform: translate(-50%, 12px); padding: 12px 18px; border-radius: 14px; background: var(--text); color: var(--card); font-size: 13.5px; line-height: 1.45; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+    #toast.on { opacity: 1; transform: translate(-50%, 0); }
+    @keyframes shake { 0%, 100% { transform: none; } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+    .subs.flash { animation: shake .35s 2; }
+    .subs.flash .shead { color: var(--accent); }
     .dmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
     .dmeta .pill { background: var(--s1); border-radius: 10px; padding: 4px 10px; }
     #dSaved { margin-left: auto; font-size: 12px; color: var(--muted); opacity: 0; transition: opacity .25s; }
@@ -172,11 +202,18 @@
   <footer id="dock">
     <div class="col"><div class="adder"><input class="add" id="add" type="text" maxlength="200" data-i18n-placeholder="dayAddPlaceholder" placeholder="Nhấn Enter để lưu"></div></div>
   </footer>
+  <div id="toast" role="status" aria-live="polite"></div>
   <aside id="drawer" aria-hidden="true">
     <div class="dhead"><span data-i18n="dayDetail">Chi tiết</span><button class="dclose" id="dClose" data-i18n-title="close" title="Đóng">✕</button></div>
     <div class="dbody">
       <input id="dTitle" type="text" maxlength="200" autocomplete="off">
       <div class="dmeta"><span class="pill" id="dState"></span><span class="pill" id="dCreated"></span><span id="dSaved"></span></div>
+      <section class="subs" id="dSubs">
+        <div class="shead"><span data-i18n="daySubs">Việc con</span><span id="dSubCount"></span><div class="sbar" id="dSubBar"><i></i></div></div>
+        <div id="dSubList"></div>
+        <div class="sadd"><span class="plus">+</span><input id="dSubAdd" type="text" maxlength="200" autocomplete="off" data-i18n-placeholder="daySubAdd" placeholder="Thêm việc con, nhấn Enter"></div>
+      </section>
+      <div class="dlabel" data-i18n="dayDesc">Mô tả</div>
       <textarea id="dNote" maxlength="5000" data-i18n-placeholder="dayDescPlaceholder" placeholder="Thêm mô tả chi tiết cho việc này..."></textarea>
       <button class="ddel" id="dDel"></button>
     </div>

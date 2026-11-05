@@ -63,12 +63,34 @@ const api = {
     save();
     return snapshot();
   },
+  subAdd: (taskId, title) => {
+    core.addSub(load(), taskId, title);
+    save();
+    return snapshot();
+  },
+  subToggle: (taskId, subId) => {
+    core.toggleSub(load(), taskId, subId);
+    save();
+    return snapshot();
+  },
+  subRename: (taskId, subId, title) => {
+    core.renameSub(load(), taskId, subId, title);
+    save();
+    return snapshot();
+  },
+  subRemove: (taskId, subId) => {
+    core.removeSub(load(), taskId, subId);
+    save();
+    return snapshot();
+  },
   remove: (id) => {
     core.removeTask(load(), id);
     save();
     return snapshot();
   },
   toggle: (id) => {
+    const task = load().tasks.find((x) => x.id === id);
+    if (task && task.status !== 'done' && core.openSubs(task) > 0) return { ...snapshot(), error: 'subs', blockedId: id }; // còn việc con chưa xong
     core.toggleTask(load(), id);
     save();
     return snapshot();
@@ -87,7 +109,7 @@ const api = {
     const t = load().tasks.find((x) => x.id === id);
     if (t && t.date > today()) return { ...snapshot(), error: 'future' }; // việc của ngày sau chưa bắt đầu được
     const r = core.startTask(load(), id, prev);
-    if (r.error) return { ...snapshot(), error: r.error };
+    if (r.error) return { ...snapshot(), error: r.error, blockedId: r.activeId };
     save();
     return snapshot();
   },
@@ -97,6 +119,8 @@ const api = {
     return snapshot();
   },
   done: () => {
+    const act = load().active;
+    if (act && !core.canComplete(data, act.taskId)) return { ...snapshot(), error: 'subs', blockedId: act.taskId };
     if (core.doneActive(load())) save();
     return snapshot();
   },

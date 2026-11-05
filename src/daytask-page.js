@@ -50,7 +50,11 @@ function row(task) {
   }
   if (state.isToday) {
     const tick = el('button', 'tick');
-    tick.addEventListener('click', () => apply(window.dayTask.toggle(task.id)));
+    if (task.status !== 'done' && task.subs && task.subsDone < task.subs.length) {
+      tick.classList.add('locked'); // còn việc con chưa xong
+      tick.title = T('daySubsLocked');
+    }
+    tick.addEventListener('click', () => applyChecked(window.dayTask.toggle(task.id)));
     r.appendChild(tick);
   }
   const title = el('div', 'title', task.title);
@@ -74,6 +78,13 @@ function row(task) {
     h.title = T('dayHasNote');
     h.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>';
     r.appendChild(h);
+  }
+  if (task.subs && task.subs.length) {
+    const st = el('span', 'stag' + (task.subsDone === task.subs.length ? ' all' : ''));
+    st.title = T('daySubTitle', { done: task.subsDone, total: task.subs.length });
+    st.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+    st.appendChild(document.createTextNode(`${task.subsDone}/${task.subs.length}`));
+    r.appendChild(st);
   }
   if (task.carriedFrom) r.appendChild(el('span', 'tag', T('dayCarried', { date: task.carriedFrom.slice(5).replace('-', '/') })));
   if (!state.isToday) {
@@ -258,7 +269,7 @@ function render() {
     const pause = el('button', 'ghost', T('dayPause'));
     pause.addEventListener('click', () => apply(window.dayTask.pause()));
     const done = el('button', '', T('dayDoneBtn', { name: s.active.title.length > 30 ? s.active.title.slice(0, 29) + '…' : s.active.title }));
-    done.addEventListener('click', () => apply(window.dayTask.done()));
+    done.addEventListener('click', () => applyChecked(window.dayTask.done()));
     box.append(done, pause);
     now.appendChild(box);
   }
@@ -332,6 +343,49 @@ async function flushNote() {
   refresh();
 }
 
+const dSubList = $('dSubList');
+const dSubAdd = $('dSubAdd');
+
+function renderSubs(t, full) {
+  const subs = t.subs || [];
+  const done = subs.filter((x) => x.done).length;
+  $('dSubCount').textContent = subs.length ? `${done}/${subs.length}` : '';
+  $('dSubBar').style.display = subs.length ? '' : 'none';
+  $('dSubBar').firstChild.style.width = subs.length ? Math.round((done / subs.length) * 100) + '%' : '0';
+  // Đang gõ sửa tên một việc con thì không vẽ lại danh sách, tránh mất con trỏ và chữ đang gõ
+  const ae = document.activeElement;
+  if (!full && ae && ae.classList && ae.classList.contains('stitle') && dSubList.contains(ae)) return; // chỉ khi đang sửa chữ; bấm vòng tròn hay ✕ thì vẫn vẽ lại
+  dSubList.textContent = '';
+  subs.forEach((sb) => {
+    const row = el('div', 'sub' + (sb.done ? ' sdone' : ''));
+    const tick = el('button', 'tick');
+    tick.addEventListener('click', () => apply(window.dayTask.subToggle(t.id, sb.id)));
+    const title = el('div', 'stitle', sb.title);
+    title.contentEditable = 'plaintext-only';
+    title.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing) {
+        e.preventDefault();
+        title.blur();
+      }
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        title.textContent = sb.title;
+        title.blur();
+      }
+    });
+    title.addEventListener('blur', () => {
+      const v = title.textContent.trim();
+      if (v && v !== sb.title) apply(window.dayTask.subRename(t.id, sb.id, v));
+      else title.textContent = sb.title;
+    });
+    const del = el('button', 'sdel', '✕');
+    del.title = T('dayDelete');
+    del.addEventListener('click', () => apply(window.dayTask.subRemove(t.id, sb.id)));
+    row.append(tick, title, del);
+    dSubList.appendChild(row);
+  });
+}
+
 function fillDrawer(t, full) {
   if (full || document.activeElement !== dTitle) dTitle.value = t.title;
   if (full || (document.activeElement !== dNote && !dirty)) {
@@ -346,6 +400,7 @@ function fillDrawer(t, full) {
   if (t.trackedMs >= 60000) bits.push(T('dayTimeSpent', { min: mins(t.trackedMs) }));
   $('dState').textContent += bits.length ? ' · ' + bits[0] : '';
   $('dDel').textContent = T('dayDeleteTask');
+  renderSubs(t, full);
 }
 
 function openDrawer(id) {
@@ -358,7 +413,7 @@ function openDrawer(id) {
   drawer.setAttribute('aria-hidden', 'false');
   document.body.classList.add('with-drawer');
   render();
-  setTimeout(() => dNote.focus(), 120);
+  setTimeout(() => dSubAdd.focus(), 120);
 }
 
 async function closeDrawer() {
@@ -401,6 +456,20 @@ dTitle.addEventListener('keydown', (e) => {
     dTitle.blur();
   }
 });
+dSubAdd.addEventListener('keydown', async (e) => {
+  if (e.key === 'Escape') {
+    e.stopPropagation();
+    dSubAdd.blur();
+    return;
+  }
+  if (e.key !== 'Enter' || e.isComposing) return;
+  const v = dSubAdd.value.trim();
+  if (!v || !openId) return;
+  dSubAdd.value = '';
+  await window.dayTask.subAdd(openId, v);
+  await refresh(); // ô nhập giữ nguyên tiêu điểm để gõ liền việc con tiếp theo
+  dSubList.scrollTop = dSubList.scrollHeight;
+});
 $('dClose').addEventListener('click', closeDrawer);
 $('dDel').addEventListener('click', async () => {
   const id = openId;
@@ -432,7 +501,35 @@ $('todo').addEventListener('dragend', async () => {
 
 async function start(id, prev) {
   const v = await window.dayTask.start(id, prev);
-  choosing = v.error === 'busy' ? id : null; // đang có việc khác chạy: hỏi tạm dừng hay Done
+  if (v.error === 'subs') blocked(v.blockedId); // chọn "Xong rồi chuyển" nhưng việc đang làm còn việc con chưa xong
+  choosing = v.error === 'busy' || v.error === 'subs' ? id : null; // đang có việc khác chạy: hỏi tạm dừng hay Done
+  await refresh();
+}
+
+// Còn việc con chưa xong thì không đóng được việc cha: báo cho người dùng và mở ngăn chi tiết để thấy việc con
+let toastTimer = 0;
+function toast(text) {
+  const t = $('toast');
+  t.textContent = text;
+  t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('on'), 3200);
+}
+
+function blocked(id) {
+  const t = findTask(id);
+  toast(T('daySubsFirst', { done: t ? t.subsDone : 0, total: t && t.subs ? t.subs.length : 0 }));
+  if (!t) return;
+  if (openId !== id) openDrawer(id);
+  const box = $('dSubs');
+  box.classList.remove('flash');
+  void box.offsetWidth;
+  box.classList.add('flash');
+}
+
+async function applyChecked(p) {
+  const r = await p;
+  if (r && r.error === 'subs') blocked(r.blockedId);
   await refresh();
 }
 

@@ -4,7 +4,7 @@
 // active: { taskId, sessionId, lastBeat } | null — việc đang làm (chỉ một). lastBeat để biết app còn sống tới lúc nào.
 // Template: { id, title, days: [0..6] (0 = Chủ nhật), lastGen: 'YYYY-MM-DD' } — việc lặp lại, tự sinh ra việc mỗi ngày đúng thứ.
 // meta: { lastCarryPrompt, lastMorning, lastSummary, widgetPos, prefs }
-// Task: { id, title, note (mô tả chi tiết, nhiều dòng), date: 'YYYY-MM-DD', status: 'todo'|'done', order, createdAt, completedAt, carriedFrom }
+// Task: { id, title, note (mô tả chi tiết, nhiều dòng), subs: [{ id, title, done }] (việc con), date: 'YYYY-MM-DD', status: 'todo'|'done', order, createdAt, completedAt, carriedFrom }
 'use strict';
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -35,6 +35,23 @@ function cleanPrefs(p, base) {
   for (const k of ['morningOn', 'endOn', 'idleOn', 'remindOn', 'widgetOn', 'shortcutsOn']) if (typeof p[k] === 'boolean') out[k] = p[k];
   for (const k of ['morningTime', 'endTime']) if (typeof p[k] === 'string' && HHMM.test(p[k])) out[k] = p[k];
   if (Number.isInteger(p.idleMin) && p.idleMin >= 1 && p.idleMin <= 120) out.idleMin = p.idleMin;
+  return out;
+}
+
+// Việc con của một việc: [{ id, title, done }], tối đa SUB_MAX, bỏ mục hỏng và trùng id
+const SUB_MAX = 30;
+function cleanSubs(raw) {
+  const out = [];
+  const seen = new Set();
+  if (!Array.isArray(raw)) return out;
+  for (const x of raw) {
+    if (!x || typeof x.id !== 'string' || seen.has(x.id)) continue;
+    const title = String(x.title == null ? '' : x.title).replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (!title) continue;
+    seen.add(x.id);
+    out.push({ id: x.id, title, done: x.done === true });
+    if (out.length >= SUB_MAX) break;
+  }
   return out;
 }
 
@@ -82,7 +99,8 @@ function normalize(raw) {
       createdAt: Number.isFinite(t.createdAt) ? t.createdAt : 0,
       completedAt: Number.isFinite(t.completedAt) ? t.completedAt : null,
       carriedFrom: /^\d{4}-\d{2}-\d{2}$/.test(t.carriedFrom || '') ? t.carriedFrom : null,
-      templateId: typeof t.templateId === 'string' ? t.templateId : null
+      templateId: typeof t.templateId === 'string' ? t.templateId : null,
+      subs: cleanSubs(t.subs)
     });
   }
   // phiên và việc đang làm phải trỏ tới việc còn tồn tại
@@ -112,7 +130,8 @@ function addTask(data, { title, note, date }, now = Date.now(), id) {
     createdAt: now,
     completedAt: null,
     carriedFrom: null,
-    templateId: null
+    templateId: null,
+    subs: []
   };
   data.tasks.push(task);
   return task;
@@ -127,6 +146,56 @@ function updateTask(data, id, patch = {}) {
   }
   if (patch.note !== undefined) task.note = cleanText(patch.note, NOTE_MAX);
   return task;
+}
+
+// Việc cha chỉ được đóng khi mọi việc con đã xong
+const openSubs = (task) => (task ? task.subs.filter((x) => !x.done).length : 0);
+const canComplete = (data, id) => openSubs(find(data, id)) === 0;
+
+// Giữ quy tắc "đã xong thì mọi việc con đã xong": việc cha đã xong mà có việc con mở lại (hoặc thêm việc con mới) thì mở lại việc cha
+function reopenIfDone(data, task) {
+  if (task.status !== 'done') return;
+  task.status = 'todo';
+  task.completedAt = null;
+  task.order = nextOrder(data, task.date);
+}
+
+const findSub = (task, subId) => (task && task.subs.find((x) => x.id === subId)) || null;
+
+// Thêm việc con vào cuối danh sách. Trả về việc con mới, hoặc null nếu tiêu đề rỗng, việc không tồn tại, hoặc đã đủ SUB_MAX.
+function addSub(data, taskId, title, id) {
+  const task = find(data, taskId);
+  const t = clean(title, 200);
+  if (!task || !t || task.subs.length >= SUB_MAX) return null;
+  const sub = { id: id || `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`, title: t, done: false };
+  task.subs.push(sub);
+  reopenIfDone(data, task);
+  return sub;
+}
+
+function toggleSub(data, taskId, subId) {
+  const sub = findSub(find(data, taskId), subId);
+  if (!sub) return null;
+  sub.done = !sub.done;
+  if (!sub.done) reopenIfDone(data, find(data, taskId));
+  return sub;
+}
+
+function renameSub(data, taskId, subId, title) {
+  const sub = findSub(find(data, taskId), subId);
+  const t = clean(title, 200);
+  if (!sub || !t) return null; // tiêu đề rỗng thì giữ nguyên
+  sub.title = t;
+  return sub;
+}
+
+function removeSub(data, taskId, subId) {
+  const task = find(data, taskId);
+  if (!task) return false;
+  const i = task.subs.findIndex((x) => x.id === subId);
+  if (i < 0) return false;
+  task.subs.splice(i, 1);
+  return true;
 }
 
 function removeTask(data, id) {
@@ -155,6 +224,7 @@ function startTask(data, id, prev, now = Date.now(), sid) {
   if (data.active) {
     if (prev !== 'pause' && prev !== 'done') return { error: 'busy', activeId: data.active.taskId };
     const before = data.active.taskId;
+    if (prev === 'done' && !canComplete(data, before)) return { error: 'subs', activeId: before }; // không đóng được việc đang làm vì còn việc con
     closeActive(data, now);
     if (prev === 'done') toggleTask(data, before, now);
   }
@@ -174,6 +244,7 @@ function pauseActive(data, now = Date.now()) {
 function doneActive(data, now = Date.now()) {
   if (!data.active) return null;
   const id = data.active.taskId;
+  if (!canComplete(data, id)) return null; // việc đang làm còn việc con chưa xong: giữ nguyên, phiên vẫn chạy
   closeActive(data, now);
   return toggleTask(data, id, now) && find(data, id);
 }
@@ -264,6 +335,7 @@ function trackedMs(data, id, now = Date.now()) {
 function toggleTask(data, id, now = Date.now()) {
   const task = find(data, id);
   if (!task) return null;
+  if (task.status !== 'done' && openSubs(task) > 0) return null; // còn việc con chưa xong thì chưa đóng được việc cha
   if (data.active && data.active.taskId === id) closeActive(data, now); // tick việc đang làm = Done
   if (task.status === 'done') {
     task.status = 'todo';
@@ -350,6 +422,7 @@ function view(data, today, date) {
   const now = Date.now();
   const withTime = (t) => ({
     ...t,
+    subsDone: t.subs.filter((x) => x.done).length,
     trackedMs: trackedMs(data, t.id, now),
     state: t.status === 'done' ? 'done' : data.active && data.active.taskId === t.id ? 'doing' : trackedMs(data, t.id, now) > 0 ? 'paused' : 'todo'
   });
@@ -374,7 +447,7 @@ function view(data, today, date) {
 }
 
 module.exports = {
-  localDate, emptyData, normalize, addTask, updateTask, removeTask, toggleTask, reorder,
+  localDate, emptyData, normalize, addTask, updateTask, removeTask, toggleTask, reorder, SUB_MAX, openSubs, canComplete, addSub, toggleSub, renameSub, removeSub,
   DEFAULT_PREFS, cleanPrefs, setPrefs, addTemplate, removeTemplate, generateRecurring, summary, weekday,
   startTask, pauseActive, doneActive, beat, recover, trackedMs,
   futureDate, moveTask, upcoming, carryCandidates, carryOver, skipCarry, view

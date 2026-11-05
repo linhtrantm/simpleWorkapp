@@ -29,7 +29,13 @@ function render(v) {
     card.appendChild(name);
     const row = el('div', 'actions');
     const done = el('button', '', T('dayDoneBtn', { name: v.active.title }));
-    done.addEventListener('click', () => window.dayTask.done());
+    done.addEventListener('click', async () => {
+      const r = await window.dayTask.done();
+      if (r && r.error === 'subs') {
+        const lab = card.querySelector('.label');
+        if (lab) lab.textContent = T('daySubsLocked'); // còn việc con chưa xong
+      }
+    });
     const pause = el('button', 'ghost', T('dayPause'));
     pause.addEventListener('click', () => window.dayTask.pause());
     row.append(done, pause);

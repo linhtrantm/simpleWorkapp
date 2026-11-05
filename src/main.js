@@ -808,7 +808,7 @@ function refreshDayTray() {
   if (v.active) {
     items.push({ label: T('dayDoing', { name: clip(v.active.title, 40) }), enabled: false });
     items.push({ label: T('dayPause'), click: () => dayStore.pause() });
-    items.push({ label: T('dayDoneBtn', { name: clip(v.active.title, 40) }), click: () => dayStore.done() });
+    items.push({ label: T('dayDoneBtn', { name: clip(v.active.title, 40) }), click: () => dayAgent.doneWithNotice() });
   } else {
     items.push({ label: T('dayNoActive'), enabled: false });
     for (const t of v.todo.slice(0, 8)) items.push({ label: T('dayStartItem', { name: clip(t.title, 40) }), click: () => dayStore.start(t.id) });
@@ -1208,6 +1208,10 @@ ipcMain.handle('daytask:view', dayReply((date) => dayStore.view(typeof date === 
 ipcMain.handle('daytask:add', dayReply((title, date) => dayStore.add(String(title || ''), '', typeof date === 'string' ? date : undefined)));
 ipcMain.handle('daytask:move', dayReply((id, date) => dayStore.move(String(id), typeof date === 'string' ? date : undefined)));
 ipcMain.handle('daytask:update', dayReply((id, patch) => dayStore.update(String(id), { title: patch && patch.title, note: patch && typeof patch.note === 'string' ? patch.note : undefined })));
+ipcMain.handle('daytask:sub-add', dayReply((id, title) => dayStore.subAdd(String(id), String(title || ''))));
+ipcMain.handle('daytask:sub-toggle', dayReply((id, sid) => dayStore.subToggle(String(id), String(sid))));
+ipcMain.handle('daytask:sub-rename', dayReply((id, sid, title) => dayStore.subRename(String(id), String(sid), String(title || ''))));
+ipcMain.handle('daytask:sub-remove', dayReply((id, sid) => dayStore.subRemove(String(id), String(sid))));
 ipcMain.handle('daytask:remove', dayReply((id) => dayStore.remove(String(id))));
 ipcMain.handle('daytask:toggle', dayReply((id) => dayStore.toggle(String(id))));
 ipcMain.handle('daytask:reorder', dayReply((ids, date) => dayStore.reorder(ids, typeof date === 'string' ? date : undefined)));
