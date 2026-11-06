@@ -20,6 +20,7 @@ let prompting = false;
 let noActiveSince = null;
 let lastRemind = 0;
 let shortcutsOn = false;
+let sleepCheckpoint = null;
 
 const hhmm = (d = new Date()) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const fmtDur = (ms) => {
@@ -69,12 +70,12 @@ function evening(now, p) {
 }
 
 // ---- Máy im: hỏi người dùng có còn làm việc đang chạy không ----
-async function askIdle(since) {
+async function askIdle(since, taskId) {
   if (prompting) return;
   prompting = true;
   try {
     const v = ctx.store.view();
-    if (!v.active) return;
+    if (!v.active || (taskId && v.active.id !== taskId)) return;
     const min = Math.max(1, Math.round((Date.now() - since) / 60000));
     const { response } = await dialog.showMessageBox({
       type: 'question',
@@ -84,7 +85,7 @@ async function askIdle(since) {
       defaultId: 0,
       cancelId: 0
     });
-    if (!ctx.store.hasActive()) return; // trong lúc hộp thoại mở, người dùng đã tự dừng
+    if (ctx.store.view().active?.id !== v.active.id) return; // không dừng nhầm việc mới khi hộp thoại còn mở
     if (response === 1) ctx.store.pause(since);
     else if (response === 2) ctx.store.pause();
   } finally {
@@ -218,14 +219,22 @@ function init(c) {
     if (widget && !widget.isDestroyed() && Number.isFinite(h)) widget.setContentSize(280, Math.max(80, Math.min(400, Math.round(h))));
   });
   ipcMain.on('daytask:widget-hide', () => ctx.store.setPrefs({ widgetOn: false }));
+  powerMonitor.on('suspend', () => {
+    const active = ctx.enabled() && ctx.store.view().active;
+    sleepCheckpoint = active ? { taskId: active.id, since: ctx.store.lastBeat() || Date.now() } : null;
+  });
   powerMonitor.on('resume', () => {
+    // Giữ mốc trước khi timer ghi nhịp chạy lại và ghi đè lastBeat.
+    const active = ctx.enabled() && ctx.store.view().active;
+    const checkpoint = sleepCheckpoint || (active ? { taskId: active.id, since: ctx.store.lastBeat() } : null);
+    sleepCheckpoint = null;
     if (!ctx.enabled()) return;
     // Máy vừa thức dậy: qua ngày mới thì sinh việc, báo sáng nếu lỡ giờ; việc đang chạy thì hỏi xem phần máy ngủ có tính không
     setTimeout(() => {
+      if (!ctx.enabled()) return;
       tick();
-      const beat = ctx.store.lastBeat();
       const p = ctx.store.prefs();
-      if (beat && p.idleOn && Date.now() - beat >= p.idleMin * 60 * 1000) askIdle(beat);
+      if (checkpoint && checkpoint.since && p.idleOn && Date.now() - checkpoint.since >= p.idleMin * 60 * 1000) askIdle(checkpoint.since, checkpoint.taskId);
     }, 3000);
   });
   sync();

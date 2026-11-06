@@ -5,7 +5,11 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { Transform } = require('stream');
+const { pipeline } = require('stream/promises');
 const core = require('./updater-core');
+
+const releaseKey = (rel) => `${rel.version}-build${rel.build}`;
 
 const API = process.env.SW_UPDATE_URL || 'https://api.github.com/repos/linhtrantm/simpleWorkapp/releases/latest';
 // Mỗi 30 giây chỉ hỏi trang web releases/latest (không tính vào giới hạn 60 lượt/giờ của API); chỉ khi tag mới khác tag đang chạy
@@ -127,24 +131,25 @@ async function download(rel) {
   if (!res.ok || !res.body) throw new core.UpdError('U203', 'HTTP ' + res.status);
   const total = Number(res.headers.get('content-length')) || rel.dmg.size || 0;
   const hash = crypto.createHash('sha256');
-  const out = fs.createWriteStream(part);
   let got = 0;
   let lastPct = -1;
   try {
-    for await (const chunk of res.body) {
-      hash.update(chunk);
-      got += chunk.length;
-      if (!out.write(chunk)) await new Promise((r) => out.once('drain', r));
-      const pct = total ? Math.floor((got / total) * 100) : 0;
-      if (pct !== lastPct) {
-        lastPct = pct;
-        set({ status: 'downloading', progress: pct });
+    const progress = new Transform({
+      transform(chunk, _encoding, cb) {
+        hash.update(chunk);
+        got += chunk.length;
+        const pct = total ? Math.floor((got / total) * 100) : 0;
+        if (pct !== lastPct) {
+          lastPct = pct;
+          set({ status: 'downloading', progress: pct });
+        }
+        cb(null, chunk);
       }
-    }
-    await new Promise((resolve, reject) => out.end((err) => (err ? reject(err) : resolve())));
+    });
+    // pipeline bắt lỗi của cả mạng và file, đồng thời xử lý backpressure và đóng stream.
+    await pipeline(res.body, progress, fs.createWriteStream(part));
   } catch (err) {
-    out.destroy();
-    fs.rmSync(part, { force: true });
+    try { fs.rmSync(part, { force: true }); } catch {}
     throw err.code && core.ERRORS[err.code] ? err : new core.UpdError('U204', String(err.message || err));
   }
   if (hash.digest('hex') !== want) {
@@ -180,21 +185,25 @@ async function check({ manual = false } = {}) {
     if (manual && !holding()) set({ status: 'checking', error: '', errorCode: '' });
     const fetched = await fetchRelease();
     const rel = fetched && fetched.skip ? null : core.parseRelease(fetched);
+    // Đợi lượt kiểm tra sau nếu file hiện tại vẫn đang tải; không đổi release giữa chừng.
+    if (state.status === 'downloading') return state;
     if (!rel || !core.isNewer({ version: app.getVersion(), build: ctx.buildNumber() }, rel)) {
+      if (state.status === 'ready') return state;
       latest = null;
       dmgPath = null;
       set({ status: 'uptodate', latest: null, progress: 0 });
       return state;
     }
     // Đang tải, đã tải, hoặc vừa tải lỗi đúng bản này: giữ nguyên để không mất thanh tiến độ hay thông báo lỗi và nút "Tải lại"
-    if ((holding() || state.status === 'error') && state.latest && state.latest.version === rel.version) return state;
+    if ((holding() || state.status === 'error') && state.latest && releaseKey(state.latest) === releaseKey(rel)) return state;
     latest = rel;
     dmgPath = null;
     const info = { version: rel.version, build: rel.build, size: rel.dmg.size, notes: rel.notes, lines: core.cleanNotes(rel.notes), url: rel.url };
     set({ status: 'available', latest: info, progress: 0, error: '', errorCode: '' });
     // Popup hiện sau khi trạng thái đã có đủ nội dung, để vẽ xong ngay. Đã bấm "Để sau" cho bản này thì không hiện lại, trừ khi tự bấm Kiểm tra.
-    if (manual || (!popupShown.has(rel.version) && ctx.settings().updateDismissed !== rel.version)) {
-      popupShown.add(rel.version);
+    const key = releaseKey(rel);
+    if (manual || (!popupShown.has(key) && ctx.settings().updateDismissed !== key)) {
+      popupShown.add(key);
       ctx.showPopup();
     }
   } catch (err) {
@@ -242,7 +251,7 @@ function schedule() {
 // Người dùng bấm "Để sau": nhớ bản này để không hiện popup lại
 function dismiss() {
   if (!state.latest) return;
-  ctx.settings().updateDismissed = state.latest.version;
+  ctx.settings().updateDismissed = releaseKey(state.latest);
   ctx.save();
 }
 

@@ -1136,7 +1136,7 @@ ipcMain.on('notify:show', (e, { id, title, body }) => {
   let tabId = null;
   for (const [vid, v] of views) if (v.webContents === e.sender) tabId = vid;
   // Bỏ qua nếu đang xem đúng tab này và cửa sổ đang được focus
-  if (tabId && tabId === activeId && !settingsOpen && win && win.isVisible() && win.isFocused()) {
+  if (tabId && isViewing(tabId)) {
     logNotify(`skip(đang xem) ${tabId} "${String(title).slice(0, 40)}"`);
     return;
   }
