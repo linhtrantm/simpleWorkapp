@@ -26,6 +26,7 @@ const themes = document.getElementById('themes');
 const errEl = document.getElementById('err');
 const nameEl = document.getElementById('app-name');
 const urlEl = document.getElementById('app-url');
+const authEl = document.getElementById('app-auth');
 const swatchesEl = document.getElementById('swatches');
 const COLORS = ['#3B82F6', '#06b6d4', '#10b981', '#84cc16', '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6', '#64748b'];
 let color = COLORS[0];
@@ -242,6 +243,7 @@ function exitEdit() {
   editingId = null;
   nameEl.value = '';
   urlEl.value = '';
+  authEl.value = '';
   errEl.textContent = '';
   color = COLORS[0];
   paintSwatches();
@@ -253,6 +255,7 @@ function startEdit(a) {
   editingId = a.id;
   nameEl.value = a.name;
   urlEl.value = a.url || '';
+  authEl.value = (a.authExtra || []).join(', ');
   color = a.color || COLORS[0];
   errEl.textContent = '';
   paintSwatches();
@@ -264,13 +267,14 @@ function startEdit(a) {
 
 async function submitApp() {
   errEl.textContent = '';
-  const data = { name: nameEl.value, url: urlEl.value, color };
+  const data = { name: nameEl.value, url: urlEl.value, color, authExtra: authEl.value };
   const res = await (editingId ? window.simpleWork.editApp({ id: editingId, ...data }) : window.simpleWork.addApp(data));
   if (res && res.ok) {
     if (editingId) exitEdit();
     else {
       nameEl.value = '';
       urlEl.value = '';
+      authEl.value = '';
     }
   } else {
     errEl.textContent = errText(res && res.error);
@@ -278,7 +282,7 @@ async function submitApp() {
 }
 addBtn.addEventListener('click', submitApp);
 cancelBtn.addEventListener('click', exitEdit);
-[nameEl, urlEl].forEach((el) =>
+[nameEl, urlEl, authEl].forEach((el) =>
   el.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitApp();
     if (e.key === 'Escape' && editingId) {

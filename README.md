@@ -2,7 +2,7 @@
 
 App desktop macOS (Electron) gom Zalo, WhatsApp, Teams, Messenger, Claude và các web app tuỳ ý vào một cửa sổ. Mỗi app có phiên đăng nhập riêng, giữ nguyên qua các lần mở và các lần cập nhật.
 
-Phiên bản hiện tại: **1.11.1** (macOS, Apple Silicon).
+Phiên bản hiện tại: **1.11.2** (macOS, Apple Silicon).
 
 ## Tính năng
 
@@ -39,7 +39,7 @@ Nếu chạy trong terminal của VSCode mà app crash ngay, thử `env -u ELECT
 npm run dist
 ```
 
-Kết quả: `dist/simpleWork-1.11.1-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
+Kết quả: `dist/simpleWork-1.11.2-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
 
 App được ký **ad-hoc**, chưa có Apple Developer ID nên chưa notarize. Ký ad-hoc là điều kiện để macOS đưa app vào mục Thông báo. Lần đầu mở nếu bị Gatekeeper chặn: chuột phải vào app > Open, hoặc `xattr -cr /Applications/simpleWork.app`.
 
@@ -80,6 +80,8 @@ Sửa `src/tabs.config.js`, thêm một entry vào mảng:
 
 Người dùng cũng có thể thêm app tuỳ ý ngay trong Cài đặt, không cần sửa code.
 
+**Đăng nhập của app tự thêm.** Mỗi tab chỉ cho điều hướng trong chính nó tới tên miền của app; link khác mở bằng trình duyệt ngoài. Nhiều dịch vụ đăng nhập ở tên miền khác (ví dụ ChatGPT đăng nhập ở `auth.openai.com`), nên với app tự thêm app cho phép sẵn: Google, Microsoft, Apple; dịch vụ phổ biến biết trước (ChatGPT/OpenAI, Trello/Atlassian, khai trong `src/auth-hosts.js`); và mọi trang `https` có tên dạng `auth.`, `login.`, `accounts.`, `sso.`, `id.`, `idp.`... Nếu một dịch vụ vẫn nhảy ra trình duyệt ngoài lúc đăng nhập thì mở Cài đặt, bấm Sửa ở app đó và điền tên miền đăng nhập vào ô **Tên miền đăng nhập thêm** (ngăn cách bằng dấu phẩy). App có sẵn (Zalo, Teams...) khai trong `tabs.config.js` nên không bị ảnh hưởng. Passkey/Touch ID vẫn tắt (xem mục Lưu ý).
+
 ## Dữ liệu và nhật ký
 
 Nằm trong `~/Library/Application Support/simpleWork/`:
@@ -98,6 +100,7 @@ src/
   notify-bridge.js   chuyển thông báo web sang thông báo gốc macOS
   no-webauthn.js     tắt passkey ở các app cần
   tabs.config.js     danh sách app có sẵn
+  auth-hosts.js      quy tắc tên miền đăng nhập cho app tự thêm (có test)
   settings.js        lưu và đọc settings.json
   daytask-core.js    logic Việc cần làm (thuần, có test)
   daytask-store.js   lưu daytask.json

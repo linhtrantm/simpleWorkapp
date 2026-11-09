@@ -9,6 +9,7 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 
 const builtinTabs = require('./tabs.config');
+const authHosts = require('./auth-hosts');
 const settingsStore = require('./settings');
 const dayStore = require('./daytask-store');
 const dayAgent = require('./daytask-agent');
@@ -93,6 +94,7 @@ function customToTab(c) {
   try {
     host = new URL(c.url).hostname.replace(/^www\./, '');
   } catch {}
+  const extra = Array.isArray(c.authExtra) ? c.authExtra : [];
   return {
     id: c.id,
     name: c.name,
@@ -102,7 +104,11 @@ function customToTab(c) {
     color: c.color,
     custom: true,
     disableWebAuthn: true,
-    authHosts: LOGIN_HOSTS,
+    // Tên miền đăng nhập: danh sách chung (Microsoft, Google, Apple) + dịch vụ phổ biến biết trước + tên miền người dùng khai thêm.
+    // loginLike: trang có tên dạng auth./login./accounts./sso. cũng được mở trong chính tab thay vì đẩy ra trình duyệt ngoài.
+    authHosts: [...new Set([...LOGIN_HOSTS, ...authHosts.presetHosts(host), ...extra])],
+    loginLike: true,
+    authExtra: extra,
     internalHosts: host ? [host] : []
   };
 }
@@ -188,7 +194,7 @@ function settingsState() {
       .filter((t) => settings.removed.includes(t.id))
       .map((t) => ({ id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, local: !!t.local })),
     apps: allTabs().map((t) => ({
-      id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, custom: !!t.custom, url: t.custom ? t.url : undefined, local: !!t.local, enabled: isEnabled(t.id)
+      id: t.id, name: t.name, icon: t.icon, art: t.art, tile: t.tile, gradient: t.gradient, letter: t.letter, color: t.color, custom: !!t.custom, url: t.custom ? t.url : undefined, authExtra: t.custom ? t.authExtra : undefined, local: !!t.local, enabled: isEnabled(t.id)
     }))
   };
 }
@@ -252,7 +258,7 @@ function createView(tab) {
   const wc = view.webContents;
   wc.setUserAgent(USER_AGENT);
 
-  const isAuth = (url) => hostMatches(url, tab.authHosts || []);
+  const isAuth = (url) => hostMatches(url, tab.authHosts || []) || (!!tab.loginLike && authHosts.looksLikeLogin(url));
   const isInternal = (url) => isAuth(url) || hostMatches(url, tab.internalHosts);
 
   // Chỉ popup đăng nhập mới mở trong app. about:blank: popup (MSAL...) mở trống rồi mới điều hướng.
@@ -867,7 +873,7 @@ function createTray() {
 
 // ---- App tuỳ ý ----
 // Chuẩn hoá tên, URL, màu từ form (dùng cho cả thêm và sửa)
-function normalizeCustom({ name, url, color }) {
+function normalizeCustom({ name, url, color, authExtra }) {
   name = String(name || '').trim().slice(0, 24);
   if (!name) return { ok: false, error: 'name' };
   url = String(url || '').trim();
@@ -880,7 +886,7 @@ function normalizeCustom({ name, url, color }) {
     return { ok: false, error: 'url' };
   }
   if (!/^#[0-9a-f]{6}$/i.test(color || '')) color = '#3B82F6';
-  return { ok: true, name, url, color };
+  return { ok: true, name, url, color, authExtra: authHosts.cleanExtra(authExtra) };
 }
 
 const pushSettings = () => settingsView && settingsView.webContents.send('settings:state', settingsState());
@@ -889,7 +895,7 @@ function addCustomApp(data) {
   const n = normalizeCustom(data);
   if (!n.ok) return n;
   const id = 'custom-' + Date.now().toString(36);
-  settings.customApps.push({ id, name: n.name, url: n.url, color: n.color });
+  settings.customApps.push({ id, name: n.name, url: n.url, color: n.color, authExtra: n.authExtra });
   settingsStore.save(settings);
   createView(tabById(id));
   sendState();
@@ -903,10 +909,11 @@ function editCustomApp(data) {
   if (!c) return { ok: false };
   const n = normalizeCustom(data);
   if (!n.ok) return n;
-  const urlChanged = c.url !== n.url;
+  const urlChanged = c.url !== n.url || JSON.stringify(c.authExtra || []) !== JSON.stringify(n.authExtra); // đổi địa chỉ hoặc tên miền đăng nhập thì tạo lại tab để quy tắc mới có hiệu lực
   c.name = n.name;
   c.url = n.url;
   c.color = n.color;
+  c.authExtra = n.authExtra;
   settingsStore.save(settings);
   if (urlChanged && views.has(c.id)) {
     destroyView(c.id);
