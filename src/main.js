@@ -10,6 +10,7 @@ app.commandLine.appendSwitch('disable-background-timer-throttling');
 
 const builtinTabs = require('./tabs.config');
 const authHosts = require('./auth-hosts');
+const popupRules = require('./popup-rules');
 const settingsStore = require('./settings');
 const dayStore = require('./daytask-store');
 const dayAgent = require('./daytask-agent');
@@ -104,6 +105,7 @@ function customToTab(c) {
     color: c.color,
     custom: true,
     disableWebAuthn: true,
+    googlePopup: true, // bước sang accounts.google.com mở bằng popup (xem createView)
     // Tên miền đăng nhập: danh sách chung (Microsoft, Google, Apple) + dịch vụ phổ biến biết trước + tên miền người dùng khai thêm.
     // loginLike: trang có tên dạng auth./login./accounts./sso. cũng được mở trong chính tab thay vì đẩy ra trình duyệt ngoài.
     authHosts: [...new Set([...LOGIN_HOSTS, ...authHosts.presetHosts(host), ...extra])],
@@ -261,30 +263,180 @@ function createView(tab) {
   const isAuth = (url) => hostMatches(url, tab.authHosts || []) || (!!tab.loginLike && authHosts.looksLikeLogin(url));
   const isInternal = (url) => isAuth(url) || hostMatches(url, tab.internalHosts);
 
-  // Chỉ popup đăng nhập mới mở trong app. about:blank: popup (MSAL...) mở trống rồi mới điều hướng.
-  // Link người dùng bấm trong chat mở bằng trình duyệt mặc định của macOS.
+  // Link trong chat mở bằng trình duyệt mặc định ngay khi biết địa chỉ. Chỉ popup đăng nhập mới mở trong app.
+  // about:blank: trang mở cửa sổ trống rồi mới điều hướng nó (MSAL đăng nhập, hoặc Zalo mở link sau khi kiểm tra an toàn). Cửa sổ đó hiện
+  // ngay dưới dạng hộp nhỏ có vòng tròn xoay "Đang kiểm tra độ bảo mật của liên kết" (không để trống đứng yên); khi biết đích thì
+  // mở trình duyệt và đóng hộp, hoặc phóng to nếu là trang đăng nhập hay nội dung thật.
+  const SMALL = { width: 420, height: 280 };
   wc.setWindowOpenHandler(({ url }) => {
-    if (url === 'about:blank' || isAuth(url)) {
+    if (url === 'about:blank') {
+      const pb = win && !win.isDestroyed() ? win.getBounds() : { x: 200, y: 200, width: 900, height: 700 };
       return {
         action: 'allow',
-        overrideBrowserWindowOptions: { parent: win, width: 520, height: 720, autoHideMenuBar: true }
+        overrideBrowserWindowOptions: {
+          parent: win, ...SMALL, x: Math.round(pb.x + (pb.width - SMALL.width) / 2), y: Math.round(pb.y + (pb.height - SMALL.height) / 2),
+          autoHideMenuBar: true, backgroundColor: bgColor(), minimizable: false, maximizable: false, fullscreenable: false
+        }
       };
+    }
+    if (isAuth(url)) {
+      return { action: 'allow', overrideBrowserWindowOptions: { parent: win, width: 520, height: 720, autoHideMenuBar: true } };
     }
     shell.openExternal(url);
     return { action: 'deny' };
   });
-  // Popup mở trống rồi điều hướng tới link ngoài: đẩy ra trình duyệt ngoài và đóng popup
-  wc.on('did-create-window', (child) => {
-    const guard = (e, url) => {
-      if (url === 'about:blank' || isInternal(url)) return;
-      e.preventDefault();
-      shell.openExternal(url);
+
+  function watchBlankPopup(child) {
+    const cwc = child.webContents;
+    let settled = false;
+    let blankTimer = null;
+    const log = (m) => logNotify(`popup ${tab.id}: ${m}`);
+    // Màn hình chờ: vòng tròn xoay + thông báo, chèn vào cửa sổ trống
+    const info = lookInfo();
+    const screen = popupRules.checkingScreen({
+      title: T('popupChecking'), sub: T('popupCheckingSub'),
+      bg: bgColor(), ink: info ? info.palette.ink : nativeTheme.shouldUseDarkColors ? '#f2f2f7' : '#1c1c1e',
+      soft: info ? info.palette.soft : '#8e8e93', accent: info ? info.accent : '#0a84ff'
+    });
+    const paint = () => {
+      if (settled || cwc.isDestroyed() || cwc.getURL() !== 'about:blank') return;
+      cwc.insertCSS(screen.css).catch(() => {});
+      cwc.executeJavaScript(screen.script).catch(() => {});
+    };
+    cwc.on('dom-ready', paint);
+    child.once('ready-to-show', paint);
+    paint();
+    // Phóng to về cỡ cửa sổ đăng nhập khi đã biết đó là trang thật cần xem
+    const grow = () => {
+      if (child.isDestroyed()) return;
+      const pb = win && !win.isDestroyed() ? win.getBounds() : child.getBounds();
+      child.setBounds({ x: Math.round(pb.x + (pb.width - 520) / 2), y: Math.round(pb.y + Math.max(20, (pb.height - 720) / 2)), width: 520, height: 720 }, true);
+    };
+    const reveal = (why) => {
+      if (settled || child.isDestroyed()) return;
+      settled = true;
+      clearTimeout(blankTimer);
+      log(`phóng to (${why})`);
+      grow();
+    };
+    const toBrowser = (target, why) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(blankTimer);
+      log(`mở ở trình duyệt (${why}) ${popupRules.redact(target)}`);
+      shell.openExternal(target);
       if (!child.isDestroyed()) child.close();
     };
-    child.webContents.on('will-navigate', guard);
-    child.webContents.on('will-redirect', guard);
+    const decide = (url) => {
+      if (settled || !url || url === 'about:blank') return;
+      if (!isInternal(url)) return toBrowser(url, 'đích ngoài app');
+      if (isAuth(url)) return reveal('trang đăng nhập');
+      const own = (h) => isInternal(`https://${h}/`);
+      const target = popupRules.targetFromRedirector(url, own);
+      if (target) return toBrowser(target, 'lấy đích từ link trung gian');
+      if (popupRules.looksLikeRedirector(url)) return toBrowser(url, 'link trung gian');
+      log(`trang nội bộ ${popupRules.redact(url)}, chờ tải xong`);
+    };
+    const onNav = (e, url, _inPlace, isMainFrame) => {
+      const u = typeof url === 'string' ? url : e && e.url;
+      const main = isMainFrame !== undefined ? isMainFrame : e ? e.isMainFrame : true;
+      if (main !== false) decide(u);
+    };
+    cwc.on('did-start-navigation', onNav);
+    cwc.on('did-redirect-navigation', onNav);
+    // Trang nội bộ tải xong mà không chuyển đi đâu thì đó là nội dung thật cần xem: phóng to
+    cwc.on('did-finish-load', () => {
+      const u = cwc.getURL();
+      if (!settled && u && u !== 'about:blank' && isInternal(u)) setTimeout(() => !settled && reveal('trang nội bộ đã tải xong'), 600);
+    });
+    // Trang ghi nội dung thẳng vào cửa sổ trống (document.write: cửa sổ in, xuất file...) làm mất màn hình chờ: phóng to để xem
+    const poll = setInterval(() => {
+      if (settled || cwc.isDestroyed() || cwc.getURL() !== 'about:blank') return clearInterval(poll);
+      cwc.executeJavaScript("!document.getElementById('sw-check') && document.body && document.body.innerText.trim().length > 0").then((has) => has && reveal('nội dung ghi trực tiếp')).catch(() => {});
+    }, 800);
+    child.on('closed', () => clearInterval(poll));
+    // Quá lâu không có đích thì đóng (Zalo kiểm tra link thường chỉ vài giây)
+    blankTimer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      log('không có đích sau 30 giây, đóng');
+      if (!child.isDestroyed()) child.close();
+    }, 30000);
+  }
+
+  wc.on('did-create-window', (child, details) => {
+    if (details && details.url === 'about:blank') {
+      watchBlankPopup(child); // quyết định bằng mọi lần điều hướng, nên không cần bộ chặn bên dưới
+    } else {
+      const guard = (e, url) => {
+        if (url === 'about:blank' || isInternal(url)) return;
+        e.preventDefault();
+        shell.openExternal(url);
+        if (!child.isDestroyed()) child.close();
+      };
+      child.webContents.on('will-navigate', guard);
+      child.webContents.on('will-redirect', guard);
+    }
+    if (expectGoogleChild) {
+      expectGoogleChild = false;
+      watchGoogleLogin(child);
+    }
   });
-  wc.on('will-navigate', (e, url) => {
+
+  // Đăng nhập bằng Google của app tự thêm: một số dịch vụ (ví dụ ChatGPT) chuyển hẳn cả trang sang accounts.google.com.
+  // Cách đó Google từ chối với trình duyệt nhúng ("This browser or app may not be secure"), còn popup do chính trang mở (như Claude)
+  // thì được xử lý bình thường. Nên với app tự thêm, bước sang Google được mở trong một cửa sổ popup (window.open từ trang, có opener),
+  // đăng nhập xong khi popup quay về tên miền của app thì đóng popup và tải lại tab chính. Không giả danh trình duyệt nào.
+  let googleChild = null;
+  let expectGoogleChild = false;
+  const isGoogleSignIn = (url) => {
+    try {
+      const u = new URL(url);
+      return u.protocol === 'https:' && u.hostname === 'accounts.google.com';
+    } catch {
+      return false;
+    }
+  };
+  function watchGoogleLogin(child) {
+    googleChild = child;
+    let done = 0;
+    child.on('closed', () => {
+      clearTimeout(done);
+      if (googleChild === child) googleChild = null;
+    });
+    child.webContents.on('did-navigate', (_e, u) => {
+      clearTimeout(done);
+      if (!hostMatches(u, tab.internalHosts)) return; // còn đang ở Google hoặc trang đăng nhập của dịch vụ
+      done = setTimeout(() => {
+        // Về tới tên miền của app và đứng yên: đã đăng nhập xong (phiên cookie dùng chung với tab chính)
+        if (!child.isDestroyed()) child.close();
+        if (!wc.isDestroyed()) wc.loadURL(tab.url);
+      }, 1500);
+    });
+  }
+  function openGooglePopup(url) {
+    if (googleChild && !googleChild.isDestroyed()) {
+      googleChild.focus();
+      return;
+    }
+    expectGoogleChild = true;
+    wc.executeJavaScript(`void window.open(${JSON.stringify(url)}, '_blank', 'popup,width=520,height=720')`, true).catch(() => {
+      expectGoogleChild = false;
+    });
+    setTimeout(() => (expectGoogleChild = false), 3000);
+  }
+  const interceptGoogle = (e, url, _inPlace, isMainFrame) => {
+    if (!tab.googlePopup || isMainFrame === false || !isGoogleSignIn(url)) return false;
+    if (hostMatches(tab.url, ['accounts.google.com'])) return false; // app chính là trang tài khoản Google: để nguyên
+    e.preventDefault();
+    openGooglePopup(url);
+    return true;
+  };
+  wc.on('will-redirect', (e, url, inPlace, isMainFrame) => {
+    interceptGoogle(e, url, inPlace, isMainFrame);
+  });
+  wc.on('will-navigate', (e, url, inPlace, isMainFrame) => {
+    if (interceptGoogle(e, url, inPlace, isMainFrame)) return;
     if (!isInternal(url)) {
       e.preventDefault();
       shell.openExternal(url);

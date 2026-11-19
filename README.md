@@ -2,7 +2,7 @@
 
 App desktop macOS (Electron) gom Zalo, WhatsApp, Teams, Messenger, Claude và các web app tuỳ ý vào một cửa sổ. Mỗi app có phiên đăng nhập riêng, giữ nguyên qua các lần mở và các lần cập nhật.
 
-Phiên bản hiện tại: **1.11.2** (macOS, Apple Silicon).
+Phiên bản hiện tại: **1.11.3** (macOS, Apple Silicon).
 
 ## Tính năng
 
@@ -22,7 +22,7 @@ Phiên bản hiện tại: **1.11.2** (macOS, Apple Silicon).
 - **Cài đặt** (nút ⚙): bật/tắt từng app, kéo thả đổi thứ tự, thêm, **sửa** (đổi tên, URL, màu, giữ nguyên phiên đăng nhập) và xoá app tuỳ ý; mọi app mặc định (kể cả Việc cần làm) đều xoá được, xoá rồi vẫn **khôi phục** được trong mục "Ứng dụng đã xoá" (luôn giữ ít nhất một app web), thanh trượt cỡ icon 6 mức, **chủ đề** màu (Giấy, Hồng, Bạc hà, Trời, Hoàng hôn, Nho, Noel, Đêm, Cực quang, Than chì hoặc tự pha từ một màu; chủ đề tự pha còn chọn được **hình nền** (trái tim, hoa, hoa tulip, chấm bi, kẻ ô) và **mật độ** 5 mức; hoạ tiết của các chủ đề có sẵn đã thưa hơn 15%): chọn một chủ đề là đổi cả nền, thẻ, chữ, màu nhấn của app lẫn màu thanh bên (Noel có thêm tuyết rơi, dây đèn nhấp nháy, thanh tiến độ sọc kẹo); nội dung các trang web không đổi, âm thanh thông báo, ngôn ngữ Tiếng Việt / English.
 - **Chuột phải vào icon app:** Tải lại, Mở trong trình duyệt.
 - **Kéo cửa sổ:** kéo bằng nền thanh bên (khoảng trống quanh 3 nút cửa sổ, kẽ giữa các icon, vùng dưới danh sách app). Các vùng kéo do chính trang web tự khai báo (ví dụ ô Search của Zalo) bị tắt để không kéo nhầm.
-- Link bấm trong chat mở bằng **trình duyệt mặc định** của macOS. Chỉ popup đăng nhập mới mở trong app.
+- Link bấm trong chat mở bằng **trình duyệt mặc định** của macOS, chỉ popup đăng nhập mới mở trong app. Một số trang (Zalo...) mở link bằng `window.open('about:blank')`, kiểm tra link an toàn rồi mới điều hướng cửa sổ đó tới địa chỉ thật mất vài giây. App giữ nguyên cơ chế kiểm tra đó nhưng cửa sổ trống hiện thành hộp nhỏ có **vòng tròn xoay và dòng "Đang kiểm tra độ bảo mật của liên kết…"** (không để trống đứng yên). Khi biết đích: link ngoài thì mở trình duyệt và đóng hộp; trang đăng nhập hoặc nội dung thật thì phóng to hộp; link trung gian (`link.`, `/redirect`, hoặc đích nằm trong tham số `?url=`) thì mở thẳng đích; quá 30 giây không có đích thì đóng. Mỗi quyết định ghi một dòng vào `notify.log` (`popup <app>: ...`, không ghi giá trị tham số). Quy tắc nằm ở `src/popup-rules.js` (có test).
 
 ## Chạy
 
@@ -39,7 +39,7 @@ Nếu chạy trong terminal của VSCode mà app crash ngay, thử `env -u ELECT
 npm run dist
 ```
 
-Kết quả: `dist/simpleWork-1.11.2-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
+Kết quả: `dist/simpleWork-1.11.3-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
 
 App được ký **ad-hoc**, chưa có Apple Developer ID nên chưa notarize. Ký ad-hoc là điều kiện để macOS đưa app vào mục Thông báo. Lần đầu mở nếu bị Gatekeeper chặn: chuột phải vào app > Open, hoặc `xattr -cr /Applications/simpleWork.app`.
 
@@ -80,7 +80,7 @@ Sửa `src/tabs.config.js`, thêm một entry vào mảng:
 
 Người dùng cũng có thể thêm app tuỳ ý ngay trong Cài đặt, không cần sửa code.
 
-**Đăng nhập của app tự thêm.** Mỗi tab chỉ cho điều hướng trong chính nó tới tên miền của app; link khác mở bằng trình duyệt ngoài. Nhiều dịch vụ đăng nhập ở tên miền khác (ví dụ ChatGPT đăng nhập ở `auth.openai.com`), nên với app tự thêm app cho phép sẵn: Google, Microsoft, Apple; dịch vụ phổ biến biết trước (ChatGPT/OpenAI, Trello/Atlassian, khai trong `src/auth-hosts.js`); và mọi trang `https` có tên dạng `auth.`, `login.`, `accounts.`, `sso.`, `id.`, `idp.`... Nếu một dịch vụ vẫn nhảy ra trình duyệt ngoài lúc đăng nhập thì mở Cài đặt, bấm Sửa ở app đó và điền tên miền đăng nhập vào ô **Tên miền đăng nhập thêm** (ngăn cách bằng dấu phẩy). App có sẵn (Zalo, Teams...) khai trong `tabs.config.js` nên không bị ảnh hưởng. Passkey/Touch ID vẫn tắt (xem mục Lưu ý).
+**Đăng nhập của app tự thêm.** Mỗi tab chỉ cho điều hướng trong chính nó tới tên miền của app; link khác mở bằng trình duyệt ngoài. Nhiều dịch vụ đăng nhập ở tên miền khác (ví dụ ChatGPT đăng nhập ở `auth.openai.com`), nên với app tự thêm app cho phép sẵn: Google, Microsoft, Apple; dịch vụ phổ biến biết trước (ChatGPT/OpenAI, Trello/Atlassian, khai trong `src/auth-hosts.js`); và mọi trang `https` có tên dạng `auth.`, `login.`, `accounts.`, `sso.`, `id.`, `idp.`... Nếu một dịch vụ vẫn nhảy ra trình duyệt ngoài lúc đăng nhập thì mở Cài đặt, bấm Sửa ở app đó và điền tên miền đăng nhập vào ô **Tên miền đăng nhập thêm** (ngăn cách bằng dấu phẩy). App có sẵn (Zalo, Teams...) khai trong `tabs.config.js` nên không bị ảnh hưởng. **Đăng nhập bằng Google:** Google từ chối khi cả trang bị chuyển sang `accounts.google.com` trong trình duyệt nhúng (lỗi "This browser or app may not be secure", gặp ở ChatGPT), nhưng chấp nhận khi trang tự mở popup (cách Claude làm). Vì vậy với app tự thêm, bước sang Google được mở trong một cửa sổ popup do `window.open` từ chính trang (có `opener`); đăng nhập xong khi popup quay về tên miền của app thì app đóng popup và tải lại tab (cookie dùng chung). App không giả danh trình duyệt nào. Passkey/Touch ID vẫn tắt (xem mục Lưu ý).
 
 ## Dữ liệu và nhật ký
 
@@ -101,6 +101,7 @@ src/
   no-webauthn.js     tắt passkey ở các app cần
   tabs.config.js     danh sách app có sẵn
   auth-hosts.js      quy tắc tên miền đăng nhập cho app tự thêm (có test)
+  popup-rules.js     quy tắc cửa sổ popup do trang mở (link trung gian, có test)
   settings.js        lưu và đọc settings.json
   daytask-core.js    logic Việc cần làm (thuần, có test)
   daytask-store.js   lưu daytask.json
