@@ -1,0 +1,59 @@
+/* Bố cục cửa sổ chính (xem src/layouts.js): rail = thanh icon dọc (mặc định, CSS nằm trong index.html), list = danh sách, tabs = tab ngang.
+   Kiểu vẻ ngoài (data-skin) và mật độ (data-density) cũng ở đây. Chủ đề màu độc lập, chỉ cấp biến màu. */
+#spacer, #collapse { display: none; }
+
+/* ---------- Danh sách ---------- */
+html[data-layout='list'] .item { flex-direction: row; justify-content: flex-start; gap: 10px; height: var(--row-h); padding: 0 8px; border-radius: 10px; }
+html[data-layout='list'] .item .label { flex: 1; min-width: 0; max-width: none; text-align: left; font-size: var(--label-size); white-space: nowrap; color: var(--text); opacity: .82; }
+html[data-layout='list'] .item.active .label { opacity: 1; font-weight: 700; }
+html[data-layout='list'][data-collapsed='true'] .item { justify-content: center; padding: 0; }
+html[data-layout='list'] #pill::before { left: -8px; top: 10px; bottom: 10px; }
+html[data-layout='list'] #bar { gap: 2px; }
+html[data-layout='list'] .brand { text-align: left; padding: 8px 18px 0; }
+html[data-layout='list'][data-collapsed='true'] .brand { text-align: center; padding: 8px 0 0; }
+html[data-layout='list'] #collapse { display: flex; -webkit-app-region: no-drag; margin: 4px auto 0; width: calc(var(--side-w, 208px) - 16px); height: 30px; align-items: center; justify-content: flex-end; padding: 0 10px; border-radius: 8px; cursor: pointer; color: var(--muted); }
+html[data-layout='list'] #collapse:hover { background: var(--hover); color: var(--text); }
+html[data-layout='list'] #collapse svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+html[data-layout='list'][data-collapsed='true'] #collapse { justify-content: center; padding: 0; }
+html[data-layout='list'][data-collapsed='true'] #collapse svg { transform: rotate(180deg); }
+
+/* ---------- Tab ngang ---------- */
+html[data-layout='tabs'] #side { right: 0; bottom: auto; width: auto; height: var(--top); flex-direction: row; align-items: center; padding: 0 10px 0 84px; gap: 8px; }
+html[data-layout='tabs'] #bar { flex: 0 1 auto; flex-direction: row; align-items: center; margin: 0; gap: 4px; height: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; -webkit-app-region: no-drag; }
+html[data-layout='tabs'] #spacer { display: block; flex: 1; height: 100%; }
+html[data-layout='tabs'] .item { flex: none; width: auto; flex-direction: row; gap: 8px; height: var(--row-h); padding: 0 12px 0 8px; border-radius: 10px; }
+html[data-layout='tabs'] .item .label { max-width: 150px; font-size: var(--label-size); white-space: nowrap; color: var(--text); opacity: .8; }
+html[data-layout='tabs'] .item.active .label { opacity: 1; font-weight: 700; }
+html[data-layout='tabs'] .gear { flex: none; width: 34px; height: 34px; padding: 0; margin: 0; justify-content: center; }
+html[data-layout='tabs'] #spacer { order: 1; }
+html[data-layout='tabs'] .brand { order: 2; display: flex; align-items: baseline; gap: 6px; flex: none; padding: 0 0 0 12px; text-align: left; white-space: nowrap; }
+html[data-layout='tabs'] .brand .wordmark { display: inline-flex; font-size: 13px; opacity: 1; }
+html[data-layout='tabs'] .brand .ver { display: inline; margin: 0; font-size: 10px; }
+html[data-layout='tabs'] .gear { order: 3; }
+html[data-layout='tabs'] #pill::before { left: 14px; right: 14px; top: auto; bottom: -4px; width: auto; height: 3px; border-radius: 3px 3px 0 0; }
+
+/* ---------- Tối giản kẻ mảnh ---------- */
+html[data-skin='hairline'] body { background: var(--frame-ring, var(--bg)); }
+html[data-skin='hairline'] #side { box-shadow: inset -1px 0 0 color-mix(in srgb, var(--text) 16%, transparent); }
+html[data-skin='hairline'][data-layout='tabs'] #side { box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--text) 16%, transparent); }
+html[data-skin='hairline'] #pill { background: transparent; }
+html[data-skin='hairline'] .item { border-radius: 8px; }
+html[data-skin='hairline'] .item:hover, html[data-skin='hairline'] .gear:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+html[data-skin='hairline'] .item.active .label { font-weight: 700; opacity: 1; }
+html[data-skin='hairline'] .badge { box-shadow: none; }
+html[data-skin='hairline'] #side::before { display: none; } /* kẻ mảnh: không hoạ tiết nền ở thanh chọn app */
+
+/* ---------- Thanh bên phải (Thanh icon, Danh sách) ---------- */
+#strip { display: none; }
+html[data-side='right'] #strip { display: block; position: absolute; top: 0; left: 0; right: var(--side-w); height: 30px; -webkit-app-region: drag; }
+html[data-side='right'] #side { left: auto; right: 0; padding-top: 12px; }
+html[data-side='right'] #pill::before { left: auto; right: -9px; border-radius: 3px 0 0 3px; }
+html[data-side='right'][data-layout='list'] #pill::before { right: -8px; }
+html[data-side='right'][data-layout='list'] #collapse svg { transform: rotate(180deg); }
+html[data-side='right'][data-layout='list'][data-collapsed='true'] #collapse svg { transform: none; }
+html[data-side='right'][data-skin='hairline'] #side { box-shadow: inset 1px 0 0 color-mix(in srgb, var(--text) 16%, transparent); }
+
+/* ---------- Thẻ nổi: nền khung lộ quanh thẻ nội dung, chọn app bo mềm ---------- */
+html[data-skin='floating'] #pill { border-radius: 12px; }
+html[data-skin='floating'] .item { border-radius: 12px; }
+html[data-skin='floating'] #stage { box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent); }

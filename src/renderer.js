@@ -9,6 +9,7 @@ let last = null; // state gần nhất, dùng để vẽ lại khi đổi kích 
 let pillAnimated = false;
 
 gear.addEventListener('mousedown', () => window.simpleWork.toggleSettings());
+document.getElementById('collapse').addEventListener('mousedown', () => last && window.simpleWork.setListCollapsed(!(last.ui && last.ui.collapsed)));
 
 function gradientFor(color) {
   return `linear-gradient(150deg, color-mix(in srgb, ${color} 70%, #fff), ${color})`;
@@ -112,7 +113,22 @@ function render(state) {
     localStorage.setItem('sw.look', JSON.stringify({ look: state.look })); // để lần mở sau áp ngay, khỏi chớp
   } catch {}
 
+  swTheme.applySkin(state.skin, state.density, document);
+  swTheme.applyIconShape(state.iconShape, document);
+  document.documentElement.dataset.side = ui.side || 'left';
+  document.documentElement.dataset.layout = ui.layout || 'rail';
+  document.documentElement.dataset.collapsed = ui.collapsed ? 'true' : 'false';
   const root = document.documentElement.style;
+  root.setProperty('--row-h', (ui.rowH || 0) + 'px');
+  // Màn hình chờ nằm đúng sau thẻ nội dung (cùng công thức với contentRect trong layouts.js, độc lập cỡ cửa sổ nên không cần vẽ lại khi kéo giãn)
+  const inset = ui.inset || 0;
+  const rightBar = ui.side === 'right' ? ui.width : 0;
+  const leftBar = ui.side === 'right' ? 0 : ui.width;
+  root.setProperty('--cx', leftBar + inset + 'px');
+  root.setProperty('--cy', ui.top + Math.max(inset, ui.topStrip || 0) + 'px');
+  root.setProperty('--cr', rightBar + inset + 'px');
+  root.setProperty('--cb', inset + 'px');
+  root.setProperty('--card-r', (ui.radius || 0) + 'px');
   root.setProperty('--side-w', ui.width + 'px');
   root.setProperty('--icon', ui.icon + 'px');
   root.setProperty('--glyph', ui.glyph + 'px');

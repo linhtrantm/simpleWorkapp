@@ -2,7 +2,7 @@
 
 App desktop macOS (Electron) gom Zalo, WhatsApp, Teams, Messenger, Claude và các web app tuỳ ý vào một cửa sổ. Mỗi app có phiên đăng nhập riêng, giữ nguyên qua các lần mở và các lần cập nhật.
 
-Phiên bản hiện tại: **1.11.3** (macOS, Apple Silicon).
+Phiên bản hiện tại: **1.12.0** (macOS, Apple Silicon).
 
 ## Tính năng
 
@@ -39,7 +39,7 @@ Nếu chạy trong terminal của VSCode mà app crash ngay, thử `env -u ELECT
 npm run dist
 ```
 
-Kết quả: `dist/simpleWork-1.11.3-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
+Kết quả: `dist/simpleWork-1.12.0-build<N>-arm64.dmg`. Mỗi lần `npm run dist` số build `<N>` tự tăng (lưu trong `build/build-number.json`), hiện ở cửa sổ About và Finder > Get Info (ví dụ `Version 1.2.0 (7)`). Cài đè vào Applications để cập nhật. `appId` (`com.simplesoft.simplework`) giữ nguyên nên phiên đăng nhập không mất.
 
 App được ký **ad-hoc**, chưa có Apple Developer ID nên chưa notarize. Ký ad-hoc là điều kiện để macOS đưa app vào mục Thông báo. Lần đầu mở nếu bị Gatekeeper chặn: chuột phải vào app > Open, hoặc `xattr -cr /Applications/simpleWork.app`.
 
@@ -102,6 +102,7 @@ src/
   tabs.config.js     danh sách app có sẵn
   auth-hosts.js      quy tắc tên miền đăng nhập cho app tự thêm (có test)
   popup-rules.js     quy tắc cửa sổ popup do trang mở (link trung gian, có test)
+  layouts.js         bố cục, mật độ, vùng nội dung của cửa sổ chính (có test)
   settings.js        lưu và đọc settings.json
   daytask-core.js    logic Việc cần làm (thuần, có test)
   daytask-store.js   lưu daytask.json
@@ -116,7 +117,7 @@ src/
   settings.html, settings-page.js  trang Cài đặt
   about.html/js, handoff.html/js, splash.html/js  hộp About, trang mở trong trình duyệt, màn hình chờ
   icons/             icon app web
-  assets/            theme.css, looks.css, side.css, noel.css, patterns.css, fonts.css, fonts/, logo, icon menu bar
+  assets/            theme.css, looks.css, side.css, layouts.css, noel.css, patterns.css, fonts.css, fonts/, logo, icon menu bar
 scripts/
   build.js           tăng số build rồi build .dmg
   release.js         đăng release lên GitHub
@@ -124,6 +125,20 @@ scripts/
   test-runtime.js    test luồng cập nhật, ngủ/thức và thông báo với Electron giả
 build/icon.png       icon app
 ```
+
+## Bố cục, kiểu và mật độ
+
+Ba thiết lập độc lập với chủ đề màu, chọn trong Cài đặt > **Bố cục** (lưu trong `settings.json`: `layout`, `skin`, `density`, `listCollapsed`):
+
+- **Bố cục** (`src/layouts.js`, có test): **Thanh icon** (mặc định, thanh dọc bên trái, 6 mức cỡ icon), **Danh sách** (thanh bên rộng 208px, icon kèm tên app, nút ‹ thu gọn về 68px) và **Tab ngang** (tab trên cùng như trình duyệt, cuộn ngang khi nhiều app). Vùng nội dung các app web tính ở một chỗ (`layout()` trong `main.js`), không âm ở cỡ cửa sổ tối thiểu.
+- **Kiểu**: **Chuẩn** (như cũ), **Kẻ mảnh** (nền phẳng, đường kẻ 1px, không bóng, không hoạ tiết nền; các trang phụ chỉ có viền mảnh) và **Thẻ nổi** (vùng nội dung các app lùi vào cách mép 8px và bo góc 12px, lộ nền khung của chủ đề xung quanh).
+- **Vị trí thanh bên**: Trái hoặc Phải cho Thanh icon và Danh sách (Tab ngang luôn ở trên). Thanh ở bên phải chừa một dải kéo cửa sổ 30px phía trên nội dung để khỏi đè lên 3 nút cửa sổ.
+- **Hình icon**: **Vuông bo** (mặc định), **Tròn**, **Chỉ biểu tượng** (bỏ nền màu, biểu tượng tô bằng màu app; icon chính thức như Zalo giữ nguyên ảnh).
+- **Mật độ**: **Gọn / Vừa / Thoáng**, đổi cao dòng và cỡ icon ở danh sách và tab, khoảng cách của Cài đặt và trang Việc cần làm.
+
+Trang Cài đặt chỉ hiện thiết lập có tác dụng với bố cục đang chọn: Thanh icon có thanh trượt Kích thước icon và vị trí thanh bên (không có Mật độ); Danh sách có vị trí thanh bên và Mật độ; Tab ngang chỉ có Mật độ (không có vị trí thanh bên). Kiểu và Hình icon dùng chung cho cả ba.
+
+CSS nằm ở `assets/layouts.css` (theo thuộc tính `data-layout`, `data-skin`, `data-density` trên `<html>`), phần kiểu cho trang phụ ở cuối `assets/looks.css`.
 
 ## Giao diện và font
 

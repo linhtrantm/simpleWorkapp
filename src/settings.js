@@ -2,6 +2,7 @@ const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const theme = require('./theme');
+const layouts = require('./layouts');
 
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
@@ -17,6 +18,12 @@ function load() {
       iconLevel: Number.isInteger(data.iconLevel) && data.iconLevel >= 1 && data.iconLevel <= 6
         ? data.iconLevel
         : { small: 1, medium: 4, large: 5 }[data.iconSize] || 4, // chuyển từ 3 mức cũ
+      layout: layouts.cleanLayout(data.layout), // bố cục: rail | list | tabs
+      skin: layouts.cleanSkin(data.skin), // kiểu vẻ ngoài: standard | hairline
+      density: layouts.cleanDensity(data.density), // mật độ: compact | normal | cozy
+      side: layouts.cleanSide(data.side), // bên đặt thanh dọc: left | right
+      iconShape: layouts.cleanIconShape(data.iconShape), // hình icon: squircle | round | glyph
+      listCollapsed: data.listCollapsed === true, // bố cục danh sách đang thu gọn
       lang: data.lang === 'en' ? 'en' : 'vi',
       notifySound: data.notifySound !== false,
       // chuyển từ cài đặt cũ keepAwake: 'always' | 'ac' | 'off' | true | false
@@ -34,7 +41,7 @@ function load() {
         : []
     };
   } catch {
-    return { disabled: [], removed: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', look: 'system', lookCustom: '#2b5cff', lookCustomBg: 'none', lookCustomDensity: 3, order: [], notifySound: true, keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', updateDismissed: '' };
+    return { disabled: [], removed: [], layout: 'rail', skin: 'standard', density: 'normal', side: 'left', iconShape: 'squircle', listCollapsed: false, iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', look: 'system', lookCustom: '#2b5cff', lookCustomBg: 'none', lookCustomDensity: 3, order: [], notifySound: true, keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', updateDismissed: '' };
   }
 }
 

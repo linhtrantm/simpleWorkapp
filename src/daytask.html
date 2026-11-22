@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="assets/fonts.css">
   <link rel="stylesheet" href="assets/noel.css">
   <style>
+    :root[data-density='compact'] { --hit: 34px; --row: 40px; --gap: 4px; }
+    :root[data-density='cozy'] { --hit: 44px; --row: 56px; --gap: 8px; }
     :root { --hit: 40px; --row: 48px; --gap: 6px; --s1: color-mix(in srgb, var(--text) 6%, var(--card)); --s2: color-mix(in srgb, var(--text) 12%, var(--card)); } /* tông nền phụ đặc (không trong suốt) để hoạ tiết nền không lộ qua nút */
     html, body { background: var(--card); height: 100%; }
     body { display: flex; flex-direction: column; overflow: hidden; }

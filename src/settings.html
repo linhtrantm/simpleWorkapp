@@ -34,6 +34,8 @@
     .list { background: var(--surface); border: 1px solid var(--border2); border-radius: 18px; overflow: hidden; }
     .row { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 16px 12px 8px; border-top: 1px solid var(--border2); background: transparent; transition: background .15s, opacity .15s; }
     .row:first-child { border-top: 0; }
+    html[data-density='compact'] .row { padding-top: 8px; padding-bottom: 8px; }
+    html[data-density='cozy'] .row { padding-top: 17px; padding-bottom: 17px; }
     .row.dragging { opacity: .45; background: var(--surface2); }
     .grip { width: 22px; text-align: center; color: var(--muted); font-size: 15px; letter-spacing: -2px; cursor: grab; opacity: .45; transition: opacity .15s; user-select: none; flex: none; }
     .row:hover .grip { opacity: 1; }
@@ -51,6 +53,7 @@
     .ghost { border: 1px solid var(--border2); background: transparent; color: var(--muted); border-radius: 11px; padding: 9px 16px; font: 600 12.5px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; }
     .ghost:hover { color: var(--text); }
     .modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .42); padding: 24px; }
+    [hidden] { display: none !important; } /* thuộc tính hidden luôn thắng các display của lớp (decoRow, group...) */
     .modal[hidden] { display: none; }
     .modal .box { width: min(400px, 100%); padding: 24px; border-radius: 20px; background: var(--card); border: 1px solid var(--border2); box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
     .modal h3 { font-size: 17px; font-weight: 800; margin-bottom: 8px; word-break: break-word; }
@@ -109,6 +112,14 @@
     .frame.on { border-color: var(--accent); color: var(--text); }
     .frame .pv { width: 100%; height: 46px; border-radius: 8px; border: 1px solid var(--border2); display: grid; grid-template-columns: 30% 1fr; overflow: hidden; background: var(--card); }
     .frame .pv i { display: block; }
+    .frame .pv.lay-tabs { grid-template-columns: 1fr; grid-template-rows: 30% 1fr; }
+    .frame .pv.lay-list { grid-template-columns: 42% 1fr; }
+    .frame .pv u { display: block; height: 4px; margin: 4px 5px 0; border-radius: 2px; background: color-mix(in srgb, var(--text) 38%, transparent); text-decoration: none; }
+    .frame .pv .rail u { height: 10px; margin: 5px 11px 0; border-radius: 4px; }
+    .frame .pv .tabsrow { display: flex; gap: 4px; align-items: center; padding: 0 6px; background: color-mix(in srgb, var(--accent) 22%, var(--card)); }
+    .frame .pv .tabsrow u { width: 16px; height: 5px; margin: 0; }
+    .frame .pv .body { background: var(--card); }
+    .frame .pv .side { background: color-mix(in srgb, var(--accent) 22%, var(--card)); }
     .frame .pv.conic i { background: conic-gradient(#f43f5e, #f59e0b, #84cc16, #06b6d4, #6366f1, #d946ef, #f43f5e); }
     .mix { margin-top: 14px; padding: 16px; border: 1px solid var(--border2); border-radius: 14px; background: var(--surface); display: grid; gap: 12px; max-width: 420px; }
     .mix[hidden] { display: none; }
@@ -209,6 +220,26 @@
       </div>
     </div>
     <div class="section">
+      <h2 data-i18n="layoutHeading">Bố cục</h2>
+      <div class="frames" id="layouts"></div>
+      <div class="decoRow" style="margin-top:16px"><span class="decoLabel" data-i18n="skinLabel">Kiểu</span><div class="pats" id="skins"></div></div>
+      <div class="decoRow" id="sideRow" style="margin-top:14px"><span class="decoLabel" data-i18n="sideLabel">Vị trí thanh bên</span><div class="pats" id="sides"></div></div>
+      <div class="decoRow" id="densRow" style="margin-top:14px"><span class="decoLabel" data-i18n="densityLabel">Mật độ</span><div class="pats" id="densities"></div></div>
+      <div class="decoRow" style="margin-top:14px"><span class="decoLabel" data-i18n="shapeLabel">Hình icon</span><div class="pats" id="shapes"></div></div>
+    </div>
+    <div class="section" id="sizeSection">
+      <h2 data-i18n="sizeHeading">Kích thước icon</h2>
+      <div class="dock">
+        <span class="mini"></span>
+        <div class="sl">
+          <input type="range" id="level" min="1" max="6" step="1" value="4">
+          <div class="ticks"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <span class="maxi"></span>
+        <span class="lv" id="lv">4</span>
+      </div>
+    </div>
+    <div class="section">
       <h2 data-i18n="lookHeading">Chủ đề</h2>
       <div class="frames" id="looks"></div>
       <div class="mix" id="lookMix" hidden></div>
@@ -222,18 +253,6 @@
           <button data-theme="light" data-i18n="themeLight">Sáng</button>
           <button data-theme="dark" data-i18n="themeDark">Tối</button>
         </div>
-      </div>
-    </div>
-    <div class="section">
-      <h2 data-i18n="sizeHeading">Kích thước icon</h2>
-      <div class="dock">
-        <span class="mini"></span>
-        <div class="sl">
-          <input type="range" id="level" min="1" max="6" step="1" value="4">
-          <div class="ticks"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        </div>
-        <span class="maxi"></span>
-        <span class="lv" id="lv">4</span>
       </div>
     </div>
     <div class="section">

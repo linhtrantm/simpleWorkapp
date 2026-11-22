@@ -544,6 +544,7 @@ async function refresh() {
   lang = v.lang || 'vi';
   i18n.apply(lang, document);
   swTheme.applyLook(v.look, document);
+  swTheme.applySkin(v.skin, v.density, document);
   if (selDate && v.date !== selDate) selDate = v.date === v.today ? null : v.date; // ngày đã qua (sang ngày mới) thì về hôm nay
   state = v;
   render();

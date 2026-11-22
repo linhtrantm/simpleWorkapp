@@ -449,12 +449,88 @@ function paintRemoved(removed) {
   );
 }
 
+// Bố cục, kiểu và mật độ: ô xem trước vẽ bằng CSS, chọn là áp ngay
+const layoutsEl = document.getElementById('layouts');
+const skinsEl = document.getElementById('skins');
+const densEl = document.getElementById('densities');
+const sidesEl = document.getElementById('sides');
+const shapesEl = document.getElementById('shapes');
+let apLang = '';
+function layoutPreview(id) {
+  const pv = document.createElement('div');
+  pv.className = 'pv lay-' + id;
+  const bars = (n, cls) => {
+    const d = document.createElement('i');
+    d.className = cls;
+    for (let k = 0; k < n; k++) d.appendChild(document.createElement('u'));
+    return d;
+  };
+  if (id === 'tabs') {
+    const row = bars(4, 'tabsrow');
+    const body = document.createElement('i');
+    body.className = 'body';
+    pv.append(row, body);
+  } else {
+    const side = bars(id === 'list' ? 4 : 3, id === 'list' ? 'side' : 'side rail');
+    const body = document.createElement('i');
+    body.className = 'body';
+    pv.append(side, body);
+  }
+  return pv;
+}
+function buildAppearance() {
+  layoutsEl.replaceChildren();
+  for (const id of ['rail', 'list', 'tabs']) {
+    const b = document.createElement('button');
+    b.className = 'frame';
+    b.dataset.layout = id;
+    const name = document.createElement('span');
+    name.textContent = i18n.t(lang, 'layout_' + id);
+    b.append(layoutPreview(id), name);
+    b.addEventListener('click', () => window.simpleWork.setLayout(id));
+    layoutsEl.appendChild(b);
+  }
+  const chips = (host, ids, prefix, key, send) => {
+    host.replaceChildren();
+    for (const id of ids) {
+      const b = document.createElement('button');
+      b.dataset[key] = id;
+      b.textContent = i18n.t(lang, prefix + id);
+      b.addEventListener('click', () => send(id));
+      host.appendChild(b);
+    }
+  };
+  chips(skinsEl, ['standard', 'hairline', 'floating'], 'skin_', 'skin', (v) => window.simpleWork.setSkin(v));
+  chips(sidesEl, ['left', 'right'], 'side_', 'side', (v) => window.simpleWork.setSide(v));
+  chips(shapesEl, ['squircle', 'round', 'glyph'], 'shape_', 'shape', (v) => window.simpleWork.setIconShape(v));
+  chips(densEl, ['compact', 'normal', 'cozy'], 'den_', 'den', (v) => window.simpleWork.setDensity(v));
+}
+function paintAppearance(layout, skin, density, side, shape) {
+  if (apLang !== lang) {
+    apLang = lang;
+    buildAppearance();
+  }
+  for (const b of layoutsEl.children) b.classList.toggle('on', b.dataset.layout === (layout || 'rail'));
+  for (const b of skinsEl.children) b.classList.toggle('on', b.dataset.skin === (skin || 'standard'));
+  for (const b of densEl.children) b.classList.toggle('on', b.dataset.den === (density || 'normal'));
+  for (const b of sidesEl.children) b.classList.toggle('on', b.dataset.side === (side || 'left'));
+  for (const b of shapesEl.children) b.classList.toggle('on', b.dataset.shape === (shape || 'squircle'));
+  // Chỉ hiện thiết lập có tác dụng với bố cục đang chọn
+  const lay = layout || 'rail';
+  document.getElementById('sideRow').hidden = lay === 'tabs'; // Tab ngang không có thanh dọc
+  document.getElementById('densRow').hidden = lay === 'rail'; // Thanh icon chỉnh cỡ bằng thanh trượt Kích thước icon; mật độ chỉ cho Danh sách và Tab ngang
+  document.getElementById('sizeSection').hidden = lay !== 'rail'; // thanh trượt cỡ icon chỉ có nghĩa với Thanh icon
+}
+
 let looksLang = '';
-function render({ apps, removed, version, iconLevel, lang: newLang, theme, look, lookCustom, lookCustomBg, lookCustomDensity, update, autoCheckUpdates, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
+function render({ apps, removed, version, iconLevel, layout, skin, density, side, iconShape, listCollapsed, lang: newLang, theme, look, lookCustom, lookCustomBg, lookCustomDensity, update, autoCheckUpdates, notifySound, keepAwakeAc, keepAwakeBattery, reloadOnWake }) {
   lang = newLang || 'vi';
   i18n.apply(lang, document);
   const info = swTheme.resolveTheme(look, lookCustom, { bg: lookCustomBg, density: lookCustomDensity });
   swTheme.applyLook(info, document);
+  swTheme.applySkin(skin, density, document);
+  swTheme.applyIconShape(iconShape, document);
+  paintAppearance(layout, skin, density, side, iconShape);
   lastCustom.look = lookCustom || lastCustom.look;
   if (looksLang !== lang) {
     looksLang = lang;

@@ -41,6 +41,11 @@
       img.src = t.icon;
       img.alt = t.name || '';
       wrap.appendChild(img);
+      // Kiểu "chỉ biểu tượng": biểu tượng tô bằng màu app (mặt nạ CSS), bản trắng ở trên bị ẩn
+      const mask = document.createElement('i');
+      mask.className = 'gmask';
+      mask.style.setProperty('--g', `url("${new URL(t.icon, document.baseURI).href}")`); // địa chỉ tuyệt đối: url() trong biến CSS tính theo file CSS, không theo trang
+      wrap.appendChild(mask);
     } else {
       const letter = document.createElement('span');
       letter.className = 'letter';

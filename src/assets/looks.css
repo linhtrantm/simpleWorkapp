@@ -42,3 +42,13 @@ html[data-dstyle='sketch'] .list, html[data-dstyle='sketch'] .carry, html[data-d
 }
 html[data-dstyle='sketch'] input.add, html[data-dstyle='sketch'] .addtpl input { border: 2.5px solid var(--text); border-radius: 13px 11px 14px 12px / 12px 14px 11px 13px; }
 html[data-dstyle='sketch'] button.add, html[data-dstyle='sketch'] .addtpl .go { border: 2.5px solid var(--text); border-radius: 13px 11px 14px 12px / 12px 14px 11px 13px; font-weight: 700; }
+
+/* Kiểu "Tối giản kẻ mảnh" cho các trang phụ: thẻ chỉ có viền 1px, không bóng, không hoạ tiết nền, bo nhỏ (thắng mọi kiểu thẻ của chủ đề) */
+html[data-skin='hairline'][data-dstyle] .list, html[data-skin='hairline'][data-dstyle] .carry, html[data-skin='hairline'][data-dstyle] .notes,
+html[data-skin='hairline'][data-dstyle] .form, html[data-skin='hairline'][data-dstyle] #card {
+  border: 1px solid var(--border2); box-shadow: none; border-radius: 10px; background-image: none;
+}
+html[data-skin='hairline'][data-dstyle] .list::after, html[data-skin='hairline'][data-dstyle] .carry::after, html[data-skin='hairline'][data-dstyle] .notes::after, html[data-skin='hairline'][data-dstyle] #card::after { display: none; }
+html[data-skin='hairline'][data-dstyle] input.add, html[data-skin='hairline'][data-dstyle] .addtpl input { border: 1px solid var(--border2); border-radius: 8px; }
+html[data-skin='hairline'][data-dstyle] button.add, html[data-skin='hairline'][data-dstyle] .addtpl .go, html[data-skin='hairline'][data-dstyle] .carry button:not(.ghost) { box-shadow: none; border-radius: 8px; border: 0; }
+html[data-skin='hairline'] body:not(:has(#side))::before { display: none; }

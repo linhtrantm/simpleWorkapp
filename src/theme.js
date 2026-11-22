@@ -240,6 +240,17 @@
     if (root.swFx) root.swFx.sync(look ? look.id : 'system', doc);
   }
 
+  // Kiểu vẻ ngoài và mật độ: chỉ ghi thuộc tính lên <html>, phần hiển thị do CSS (assets/layouts.css, looks.css) quyết định
+  function applySkin(skin, density, doc) {
+    doc.documentElement.dataset.skin = ['hairline', 'floating'].includes(skin) ? skin : 'standard';
+    doc.documentElement.dataset.density = ['compact', 'cozy'].includes(density) ? density : 'normal';
+  }
+
+  // Hình icon app: vuông bo (mặc định), tròn, hoặc chỉ biểu tượng; phần hiển thị do CSS (assets/theme.css)
+  function applyIconShape(shape, doc) {
+    doc.documentElement.dataset.icon = ['round', 'glyph'].includes(shape) ? shape : 'squircle';
+  }
+
   // Áp màu thanh bên (phần tử #side) của trang chính
   function applyFrame(frame, doc) {
     const root = doc.documentElement.style;
@@ -263,7 +274,7 @@
     side.style.setProperty('--brand', ink);
   }
 
-  const api = { THEMES, THEME_IDS, isHex, hslToHex, hexToHsl, luminance, isLight, deriveCustom, resolveTheme, migrateLook, PATTERN_IDS, DENSITY_K, DEFAULT_DENSITY, densityK, applyPalette, apply, applyLook, applyFrame };
+  const api = { THEMES, THEME_IDS, isHex, hslToHex, hexToHsl, luminance, isLight, deriveCustom, resolveTheme, migrateLook, applySkin, applyIconShape, PATTERN_IDS, DENSITY_K, DEFAULT_DENSITY, densityK, applyPalette, apply, applyLook, applyFrame };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.swTheme = api;
 })(this);

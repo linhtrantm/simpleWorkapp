@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="assets/patterns.css">
   <link rel="stylesheet" href="assets/fonts.css">
   <link rel="stylesheet" href="assets/side.css">
+  <link rel="stylesheet" href="assets/layouts.css">
   <link rel="stylesheet" href="assets/noel.css">
   <style>
     :root { --pill-bg: rgba(255, 255, 255, 0.1); --ring: var(--frame-ring, var(--bg)); }
@@ -18,7 +19,7 @@
 
 
     /* Màn hình chờ / lỗi nằm phía sau trang web, lộ ra khi trang chưa sẵn sàng */
-    #stage { position: absolute; left: var(--side-w, 76px); top: var(--top, 0px); right: 0; bottom: 0; background: var(--card); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; text-align: center;  }
+    #stage { position: absolute; left: var(--cx, var(--side-w, 76px)); top: var(--cy, var(--top, 0px)); right: var(--cr, 0px); bottom: var(--cb, 0px); border-radius: var(--card-r, 0px); background: var(--card); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; text-align: center;  }
     #stage .big { --sz: 84px; position: relative; }
     @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
     @keyframes ring { 0% { opacity: .55; transform: scale(.92); } 100% { opacity: 0; transform: scale(1.2); } }
@@ -63,11 +64,14 @@
 </head>
 <body>
   <div id="stage"></div>
+  <div id="strip"></div>
   <div id="side">
     <div id="bar"><div id="pill"></div></div>
+    <div id="spacer"></div>
     <div class="gear" id="gear" data-i18n-title="settings" title="Cài đặt">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </div>
+    <div id="collapse" data-i18n-title="listCollapse" title="Thu gọn"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></div>
     <div class="brand"><span class="wordmark"><span>simple</span><span class="soft">Work</span></span><span class="ver" id="ver"></span></div>
   </div>
   <script src="icon-art.js"></script>

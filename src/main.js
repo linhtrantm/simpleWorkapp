@@ -11,6 +11,7 @@ app.commandLine.appendSwitch('disable-background-timer-throttling');
 const builtinTabs = require('./tabs.config');
 const authHosts = require('./auth-hosts');
 const popupRules = require('./popup-rules');
+const layouts = require('./layouts');
 const settingsStore = require('./settings');
 const dayStore = require('./daytask-store');
 const dayAgent = require('./daytask-agent');
@@ -18,18 +19,8 @@ const swTheme = require('./theme');
 const updater = require('./updater');
 const i18n = require('./i18n');
 
-// Kích thước thanh bên theo cỡ icon (px)
-// Thanh bên tối thiểu 68px để chứa vừa 3 nút cửa sổ macOS, nên tấm thẻ web luôn dán sát mép trên (top: 0)
-const ICON_LEVELS = [
-  { width: 68, icon: 30, glyph: 17, label: false, labelSize: 9.5, top: 0 },
-  { width: 68, icon: 38, glyph: 21, label: false, labelSize: 9.5, top: 0 },
-  { width: 74, icon: 40, glyph: 22, label: true, labelSize: 9.5, top: 0 },
-  { width: 80, icon: 44, glyph: 24, label: true, labelSize: 9.5, top: 0 },
-  { width: 90, icon: 50, glyph: 28, label: true, labelSize: 10, top: 0 },
-  { width: 102, icon: 56, glyph: 31, label: true, labelSize: 11, top: 0 }
-];
-const CARD_RADIUS = 0; // flat: tấm thẻ web vuông góc, không bo
-const CARD_MARGIN = 0; // tấm thẻ dán sát mép phải/dưới cửa sổ
+// Kích thước thanh chọn app theo bố cục, mật độ, cỡ icon: xem src/layouts.js
+const ICON_LEVELS = layouts.ICON_LEVELS;
 const LOAD_TIMEOUT_MS = 10000; // quá thời gian này vẫn hiện trang dù chưa báo tải xong
 const SPLASH_MIN_MS = 1600;
 const SPLASH_MAX_MS = 10000;
@@ -57,7 +48,7 @@ let dayTray = null;
 let dayTraySig = '';
 let dayBeatTimer = null;
 let splashView = null;
-let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', notifySound: true, disabled: [], removed: [], iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', look: 'system', lookCustom: '#2b5cff', lookCustomBg: 'none', lookCustomDensity: 3, order: [] };
+let settings = { keepAwakeAc: true, keepAwakeBattery: true, reloadOnWake: true, autoCheckUpdates: true, updateNotified: '', notifySound: true, disabled: [], removed: [], layout: 'rail', skin: 'standard', density: 'normal', side: 'left', iconShape: 'squircle', listCollapsed: false, iconLevel: 4, customApps: [], lang: 'vi', theme: 'system', look: 'system', lookCustom: '#2b5cff', lookCustomBg: 'none', lookCustomDensity: 3, order: [] };
 let tray = null;
 let traySig = '';
 const views = new Map(); // id -> WebContentsView
@@ -81,7 +72,7 @@ const HANDOFF_CSS = 'html{filter:blur(14px) saturate(.75)!important;pointer-even
 const notifUnread = new Map(); // id -> số thông báo nhận kể từ lần xem gần nhất (dự phòng cho app title không có số)
 
 const T = (key, vars) => i18n.t(settings.lang, key, vars);
-const ui = () => ICON_LEVELS[(settings.iconLevel || 4) - 1] || ICON_LEVELS[3];
+const ui = () => layouts.shell({ layout: settings.layout, density: settings.density, collapsed: settings.listCollapsed, iconLevel: settings.iconLevel, side: settings.side, skin: settings.skin });
 // App tuỳ ý (người dùng thêm trong Cài đặt) được chuyển thành entry giống tabs.config
 // Host đăng nhập phổ biến: app tuỳ ý (Outlook...) bị chuyển hướng sang đây khi đăng nhập, phải mở trong app
 // thay vì đẩy ra trình duyệt ngoài (khiến phiên đăng nhập không về lại app).
@@ -142,12 +133,7 @@ function hostMatches(url, hosts) {
 function layout() {
   if (!win) return;
   const [w, h] = win.getContentSize();
-  const content = {
-    x: ui().width,
-    y: ui().top,
-    width: Math.max(0, w - ui().width - CARD_MARGIN),
-    height: Math.max(0, h - ui().top - CARD_MARGIN)
-  };
+  const content = layouts.contentRect(w, h, ui());
   for (const v of views.values()) v.setBounds(content);
   if (settingsView) settingsView.setBounds(content);
   if (dayView) dayView.setBounds(content);
@@ -172,6 +158,9 @@ function sendState() {
     load: { state: (activeId && loadState.get(activeId)) || 'ready', error: (activeId && loadError.get(activeId)) || '', kind: (activeId && loadKind.get(activeId)) || '', retry: (activeId && loadRetry.get(activeId)) || 0 },
     lang: settings.lang,
     look: lookInfo(),
+    skin: settings.skin,
+    density: settings.density,
+    iconShape: settings.iconShape,
     ui: ui()
   });
 }
@@ -184,6 +173,12 @@ function settingsState() {
     theme: settings.theme,
     look: settings.look,
     lookCustom: settings.lookCustom,
+    layout: settings.layout,
+    skin: settings.skin,
+    density: settings.density,
+    side: settings.side,
+    iconShape: settings.iconShape,
+    listCollapsed: settings.listCollapsed,
     lookCustomBg: settings.lookCustomBg,
     lookCustomDensity: settings.lookCustomDensity,
     notifySound: settings.notifySound,
@@ -254,7 +249,7 @@ function createView(tab) {
       backgroundThrottling: false // tab nền vẫn nhận tin
     }
   });
-  view.setBorderRadius(CARD_RADIUS);
+  view.setBorderRadius(ui().radius);
   view.setBackgroundColor(cardColor());
   view.setVisible(false);
   const wc = view.webContents;
@@ -571,7 +566,7 @@ function refreshHandoffOverlay() {
     handoffView = new WebContentsView({
       webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true }
     });
-    handoffView.setBorderRadius(CARD_RADIUS);
+    handoffView.setBorderRadius(ui().radius);
     handoffView.setBackgroundColor('#00000000');
     handoffView.webContents.loadFile(path.join(__dirname, 'handoff.html'));
     win.contentView.addChildView(handoffView);
@@ -657,7 +652,7 @@ function ensureSettingsView() {
   settingsView = new WebContentsView({
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true }
   });
-  settingsView.setBorderRadius(CARD_RADIUS);
+  settingsView.setBorderRadius(ui().radius);
   settingsView.setBackgroundColor(cardColor());
   settingsView.setVisible(false);
   settingsView.webContents.loadFile(path.join(__dirname, 'settings.html'));
@@ -686,7 +681,7 @@ function ensureDayView() {
   dayView = new WebContentsView({
     webPreferences: { preload: path.join(__dirname, 'daytask-preload.js'), contextIsolation: true, sandbox: true }
   });
-  dayView.setBorderRadius(CARD_RADIUS);
+  dayView.setBorderRadius(ui().radius);
   dayView.setBackgroundColor(cardColor());
   dayView.setVisible(false);
   dayView.webContents.loadFile(path.join(__dirname, 'daytask.html'));
@@ -1362,7 +1357,7 @@ ipcMain.on('tabs:open-external', () => {
 });
 ipcMain.on('daytask:close', () => setDayOpen(false));
 // Mỗi thao tác trả về trạng thái mới, kèm ngôn ngữ và bảng màu để trang vẽ đúng
-const dayReply = (fn) => (_e, ...args) => ({ ...fn(...args), lang: settings.lang, look: lookInfo() });
+const dayReply = (fn) => (_e, ...args) => ({ ...fn(...args), lang: settings.lang, look: lookInfo(), skin: settings.skin, density: settings.density, iconShape: settings.iconShape });
 ipcMain.handle('daytask:view', dayReply((date) => dayStore.view(typeof date === 'string' ? date : undefined)));
 ipcMain.handle('daytask:add', dayReply((title, date) => dayStore.add(String(title || ''), '', typeof date === 'string' ? date : undefined)));
 ipcMain.handle('daytask:move', dayReply((id, date) => dayStore.move(String(id), typeof date === 'string' ? date : undefined)));
@@ -1484,6 +1479,49 @@ ipcMain.on('settings:set-look-deco', (_e, deco) => {
   }
   settings.look = 'custom';
   themeChanged();
+});
+// Bố cục, kiểu vẻ ngoài, mật độ: đổi là áp ngay (tính lại vùng nội dung, vẽ lại thanh chọn app và các trang phụ)
+function applyCardRadius() {
+  const r = ui().radius;
+  for (const v of [...views.values(), settingsView, dayView, handoffView]) if (v && !v.webContents.isDestroyed()) v.setBorderRadius(r);
+}
+function appearanceChanged() {
+  applyCardRadius();
+  layout();
+  sendState();
+  if (settingsView) settingsView.webContents.send('settings:state', settingsState());
+  if (dayView && !dayView.webContents.isDestroyed()) dayView.webContents.send('daytask:changed');
+  clearTimeout(themeSaveTimer);
+  themeSaveTimer = setTimeout(() => settingsStore.save(settings), 300);
+}
+ipcMain.on('settings:set-layout', (_e, v) => {
+  if (!layouts.LAYOUTS.includes(v)) return;
+  settings.layout = v;
+  appearanceChanged();
+});
+ipcMain.on('settings:set-side', (_e, v) => {
+  if (!layouts.SIDES.includes(v)) return;
+  settings.side = v;
+  appearanceChanged();
+});
+ipcMain.on('settings:set-icon-shape', (_e, v) => {
+  if (!layouts.ICON_SHAPES.includes(v)) return;
+  settings.iconShape = v;
+  appearanceChanged();
+});
+ipcMain.on('settings:set-skin', (_e, v) => {
+  if (!layouts.SKINS.includes(v)) return;
+  settings.skin = v;
+  appearanceChanged();
+});
+ipcMain.on('settings:set-density', (_e, v) => {
+  if (!layouts.DENSITIES.includes(v)) return;
+  settings.density = v;
+  appearanceChanged();
+});
+ipcMain.on('settings:set-list-collapsed', (_e, v) => {
+  settings.listCollapsed = !!v;
+  appearanceChanged();
 });
 ipcMain.on('settings:set-order', (_e, ids) => {
   if (!Array.isArray(ids)) return;
